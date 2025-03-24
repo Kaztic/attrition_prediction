@@ -110,44 +110,37 @@ def predict_all_employees(df, model, explainer, features):
 
 # Main app
 def main():
+    """Main function to run the dashboard"""
     st.markdown('<p class="main-header">AI-Powered Attrition Prediction</p>', unsafe_allow_html=True)
     
-    # Load data and model
+    # Load data
     df = load_data()
     if df is None:
-        st.stop()
+        return
     
-    model, explainer, features = load_prediction_resources()
+    # Load model and make predictions
+    model, explainer, features = load_prediction_resources()  # Make sure features is loaded here
     if model is None:
-        st.stop()
+        return
     
-    # Make predictions if not already in data
-    if 'attrition_pred' not in df.columns:
-        with st.spinner("Making predictions..."):
-            predictions, explanations = predict_all_employees(df, model, explainer, features)
-            df['attrition_pred'] = predictions
-    else:
-        predictions = df['attrition_pred'].values
-        # Still need explanations
-        with st.spinner("Generating explanations..."):
-            # Get features in the right order
-            X = df[features]
-            explanations = explainer.shap_values(X)
+    # Make predictions
+    predictions, explanations = predict_attrition(df, model, explainer, features)
     
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["Overview", "Employee Risk Analysis", "Recommendations"])
+    tab1, tab2, tab3 = st.tabs(["Overview", "Employee Analysis", "Recommendations"])
     
     with tab1:
-        display_overview_tab(df, predictions)
+        display_overview_tab(df, predictions, features, explanations)
     
     with tab2:
-        display_risk_analysis_tab(df, predictions, explanations, features)
+        display_employee_analysis_tab(df, predictions, explanations, features, explainer)
     
     with tab3:
         display_recommendations_tab(df, predictions, explanations, features)
 
 
-def display_overview_tab(df, predictions):
+
+def display_overview_tab(df, predictions, features, explanations):
     """Display overview dashboard with key metrics and visualizations"""
     st.markdown('<p class="sub-header">Attrition Risk Overview</p>', unsafe_allow_html=True)
     
@@ -237,9 +230,14 @@ def display_overview_tab(df, predictions):
     st.subheader("Top Risk Factors")
     
     # Create a horizontal bar chart showing feature importance
+    mean_importance = np.abs(explanations[0]).mean(axis=0)  # Take first class for binary classification
+    if len(mean_importance) != len(features):
+        st.warning(f"Feature mismatch: {len(features)} features vs {len(mean_importance)} importance values")
+        return
+        
     feature_imp = pd.DataFrame({
         'Feature': features,
-        'Importance': np.abs(explanations).mean(axis=0)
+        'Importance': mean_importance
     }).sort_values('Importance', ascending=False).head(10)
     
     fig = px.bar(
@@ -253,7 +251,7 @@ def display_overview_tab(df, predictions):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def display_risk_analysis_tab(df, predictions, explanations, features):
+def display_employee_analysis_tab(df, predictions, explanations, features, explainer):
     """Display employee risk analysis with filtering and detailed insights"""
     st.markdown('<p class="sub-header">Employee Risk Analysis</p>', unsafe_allow_html=True)
     
@@ -349,12 +347,12 @@ def display_risk_analysis_tab(df, predictions, explanations, features):
                 
                 # Display SHAP plot
                 plt.figure(figsize=(10, 5))
-                shap_values = explanations[employee_idx]
+                shap_values = explanations[0][employee_idx]  # Take first class for binary classification
                 
                 # Create temp figure for SHAP plot
                 fig, ax = plt.subplots(figsize=(10, 5))
                 shap.force_plot(
-                    base_value=explainer.expected_value,
+                    base_value=explainer.expected_value[0],  # Take first class expected value
                     shap_values=shap_values,
                     features=employee_data[features],
                     feature_names=features,
@@ -414,18 +412,21 @@ def display_recommendations_tab(df, predictions, explanations, features):
     
     if risk_clusters:
         for i, cluster in enumerate(risk_clusters):
-            with st.expander(f"{cluster['name']} ({cluster['count']} employees, {cluster['avg_risk']:.2f} avg risk)"):
-                st.write("#### Recommended Actions:")
-                for action in cluster['actions']:
-                    st.write(f"- {action}")
-                
-                # Show employees in this cluster
-                if 'ids' in cluster:
-                    with st.expander("View Employees in this Cluster"):
-                        cluster_employees = df_with_pred[df_with_pred['employee_id'].isin(cluster['ids'])]
-                        cluster_employees = cluster_employees[['employee_id', 'department', 'team', 'attrition_risk']]
-                        cluster_employees = cluster_employees.sort_values('attrition_risk', ascending=False)
-                        st.dataframe(cluster_employees)
+            st.subheader(f"{cluster['name']} ({cluster['count']} employees, {cluster['avg_risk']:.2f} avg risk)")
+            
+            st.write("#### Recommended Actions:")
+            for action in cluster['actions']:
+                st.write(f"- {action}")
+            
+            # Show employees in this cluster without nesting expanders
+            if 'ids' in cluster:
+                st.write("#### Employees in this Cluster")
+                cluster_employees = df_with_pred[df_with_pred['employee_id'].isin(cluster['ids'])]
+                cluster_employees = cluster_employees[['employee_id', 'department', 'team', 'attrition_risk']]
+                cluster_employees = cluster_employees.sort_values('attrition_risk', ascending=False)
+                st.dataframe(cluster_employees)
+            
+            st.markdown("---")  # Add a separator between clusters
     else:
         st.write("No significant risk clusters identified.")
     
@@ -447,7 +448,7 @@ def display_recommendations_tab(df, predictions, explanations, features):
             employee_data = df_with_pred.loc[employee_idx:employee_idx]
             
             # Generate personalized recommendations
-            employee_explanation = explanations[employee_idx:employee_idx+1]
+            employee_explanation = explanations[0][employee_idx:employee_idx+1]
             recommendations = generate_recommendations(employee_data, employee_explanation, features)
             
             # Display recommendations
@@ -494,7 +495,6 @@ def display_recommendations_tab(df, predictions, explanations, features):
         
         8. **Manager training** - Equip managers with skills to support employee growth and retention.
         """)
-
 
 if __name__ == "__main__":
     main()
