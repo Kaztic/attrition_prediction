@@ -1,0 +1,19 @@
+name: attrition-prediction
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pandas=1.5.0
+  - numpy=1.23.0
+  - scikit-learn=1.1.0
+  - matplotlib=3.6.0
+  - seaborn=0.12.0
+  - plotly=5.10.0
+  - streamlit=1.22.0  # Updated to newer version
+  - altair=4.2.0
+  - faker=14.0.0
+  - ipython=8.10.0
+  - pip=22.2.2
+  - pip:
+    - shap==0.41.0
