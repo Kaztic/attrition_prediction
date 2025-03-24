@@ -194,7 +194,7 @@ def predict_attrition(employee_data, model=None, explainer=None, features=None, 
     Returns:
     --------
     tuple
-        (predictions, explanations)
+        (predictions, probabilities, explanations)
     """
     # Load model artifacts if not provided
     if model is None or explainer is None or features is None:
@@ -209,12 +209,19 @@ def predict_attrition(employee_data, model=None, explainer=None, features=None, 
     X = employee_data[features]
     
     # Make predictions
+    predictions = model.predict(X)
     probabilities = model.predict_proba(X)[:, 1]
     
     # Generate SHAP explanations
-    explanations = explainer.shap_values(X)
+    try:
+        explanations = explainer.shap_values(X)
+        if isinstance(explanations, list):
+            explanations = explanations[0]  # For binary classification, get first class
+    except Exception as e:
+        print(f"Warning: Could not generate SHAP explanations: {str(e)}")
+        explanations = None
     
-    return probabilities, explanations
+    return predictions, probabilities, explanations
 
 
 if __name__ == "__main__":
@@ -227,10 +234,10 @@ if __name__ == "__main__":
         
         # Test prediction
         sample = X_test.iloc[0:5]
-        probs, explanations = predict_attrition(sample, model, explainer, features)
+        predictions, probabilities, explanations = predict_attrition(sample, model, explainer, features)
         print("\nSample predictions:")
-        for i, prob in enumerate(probs):
-            print(f"  Employee {i+1}: {prob:.4f} probability of attrition")
+        for i, prediction in enumerate(predictions):
+            print(f"  Employee {i+1}: {prediction} (probability of attrition: {probabilities[i]:.4f})")
             
     except FileNotFoundError:
         print("Processed data file not found. Process data first using feature_engineering.py")

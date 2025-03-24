@@ -124,30 +124,28 @@ def main():
         return
     
     # Make predictions
-    predictions, explanations = predict_attrition(df, model, explainer, features)
+    predictions, probabilities, explanations = predict_attrition(df, model, explainer, features)
     
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["Overview", "Employee Analysis", "Recommendations"])
     
     with tab1:
-        display_overview_tab(df, predictions, features, explanations)
+        display_overview_tab(df, probabilities, features, explanations)
     
     with tab2:
-        display_employee_analysis_tab(df, predictions, explanations, features, explainer)
+        display_employee_analysis_tab(df, probabilities, explanations, features, explainer)
     
     with tab3:
-        display_recommendations_tab(df, predictions, explanations, features)
+        display_recommendations_tab(df, probabilities, explanations, features)
 
-
-
-def display_overview_tab(df, predictions, features, explanations):
+def display_overview_tab(df, probabilities, features, explanations):
     """Display overview dashboard with key metrics and visualizations"""
     st.markdown('<p class="sub-header">Attrition Risk Overview</p>', unsafe_allow_html=True)
     
     # Calculate risk categories
-    high_risk = (predictions >= 0.7).sum()
-    medium_risk = ((predictions >= 0.4) & (predictions < 0.7)).sum()
-    low_risk = (predictions < 0.4).sum()
+    high_risk = (probabilities >= 0.7).sum()
+    medium_risk = ((probabilities >= 0.4) & (probabilities < 0.7)).sum()
+    low_risk = (probabilities < 0.4).sum()
     
     # Summary metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -162,7 +160,7 @@ def display_overview_tab(df, predictions, features, explanations):
     
     # Add predictions to dataframe for visualizations
     df_with_pred = df.copy()
-    df_with_pred['attrition_risk'] = predictions
+    df_with_pred['attrition_risk'] = probabilities
     
     # Risk distribution
     st.subheader("Risk Distribution")
@@ -230,34 +228,36 @@ def display_overview_tab(df, predictions, features, explanations):
     st.subheader("Top Risk Factors")
     
     # Create a horizontal bar chart showing feature importance
-    mean_importance = np.abs(explanations[0]).mean(axis=0)  # Take first class for binary classification
-    if len(mean_importance) != len(features):
-        st.warning(f"Feature mismatch: {len(features)} features vs {len(mean_importance)} importance values")
-        return
+    if explanations is not None:
+        mean_importance = np.abs(explanations).mean(axis=0)  # Take mean across all samples
+        if len(mean_importance) != len(features):
+            st.warning(f"Feature mismatch: {len(features)} features vs {len(mean_importance)} importance values")
+            return
+            
+        feature_imp = pd.DataFrame({
+            'Feature': features,
+            'Importance': mean_importance
+        }).sort_values('Importance', ascending=False).head(10)
         
-    feature_imp = pd.DataFrame({
-        'Feature': features,
-        'Importance': mean_importance
-    }).sort_values('Importance', ascending=False).head(10)
-    
-    fig = px.bar(
-        feature_imp,
-        x='Importance',
-        y='Feature',
-        orientation='h',
-        color='Importance',
-        color_continuous_scale='Blues'
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        fig = px.bar(
+            feature_imp,
+            x='Importance',
+            y='Feature',
+            orientation='h',
+            color='Importance',
+            color_continuous_scale='Blues'
+        )
+        st.plotly_chart(fig)
+    else:
+        st.warning("SHAP explanations not available for feature importance visualization")
 
-
-def display_employee_analysis_tab(df, predictions, explanations, features, explainer):
+def display_employee_analysis_tab(df, probabilities, explanations, features, explainer):
     """Display employee risk analysis with filtering and detailed insights"""
     st.markdown('<p class="sub-header">Employee Risk Analysis</p>', unsafe_allow_html=True)
     
     # Add predictions to dataframe
     df_with_pred = df.copy()
-    df_with_pred['attrition_risk'] = predictions
+    df_with_pred['attrition_risk'] = probabilities
     
     # Filters in sidebar
     st.sidebar.header("Filters")
@@ -345,67 +345,68 @@ def display_employee_analysis_tab(df, predictions, explanations, features, expla
             with col2:
                 st.write("### Risk Factors")
                 
-                # Display SHAP plot
-                plt.figure(figsize=(10, 5))
-                shap_values = explanations[0][employee_idx]  # Take first class for binary classification
-                
-                # Create temp figure for SHAP plot
-                fig, ax = plt.subplots(figsize=(10, 5))
-                shap.force_plot(
-                    base_value=explainer.expected_value[0],  # Take first class expected value
-                    shap_values=shap_values,
-                    features=employee_data[features],
-                    feature_names=features,
-                    matplotlib=True,
-                    show=False,
-                    text_rotation=45
-                )
-                
-                # Display the figure
-                st.pyplot(fig)
-                
-                # Extract top risk factors
-                feature_importance = list(zip(features, shap_values))
-                sorted_importance = sorted(feature_importance, key=lambda x: -x[1])  # Sort by positive impact on risk
-                
-                # Display top risk factors as a table
-                risk_factors_df = pd.DataFrame(sorted_importance, columns=['Factor', 'Impact'])
-                risk_factors_df = risk_factors_df[risk_factors_df['Impact'] > 0].head(5)  # Only positive factors
-                
-                if not risk_factors_df.empty:
-                    st.write("#### Top Risk Drivers")
+                if explanations is not None:
+                    # Get SHAP values for the selected employee
+                    employee_shap_values = explanations[employee_idx]
                     
-                    # Format factor names for readability
-                    risk_factors_df['Factor'] = risk_factors_df['Factor'].apply(
-                        lambda x: x.replace('_', ' ').title()
+                    # Create temp figure for SHAP plot
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    shap.force_plot(
+                        base_value=explainer.expected_value[0],  # Take first class expected value
+                        shap_values=employee_shap_values,
+                        features=employee_data[features],
+                        feature_names=features,
+                        matplotlib=True,
+                        show=False,
+                        text_rotation=45
                     )
                     
-                    # Display as a bar chart
-                    fig = px.bar(
-                        risk_factors_df,
-                        x='Impact',
-                        y='Factor',
-                        orientation='h',
-                        color='Impact',
-                        color_continuous_scale='Reds'
-                    )
-                    fig.update_layout(height=300)
-                    st.plotly_chart(fig, use_container_width=True)
+                    # Display the figure
+                    st.pyplot(fig)
+                    
+                    # Extract top risk factors
+                    feature_importance = list(zip(features, employee_shap_values))
+                    sorted_importance = sorted(feature_importance, key=lambda x: -x[1])  # Sort by positive impact on risk
+                    
+                    # Display top risk factors as a table
+                    risk_factors_df = pd.DataFrame(sorted_importance, columns=['Factor', 'Impact'])
+                    risk_factors_df = risk_factors_df[risk_factors_df['Impact'] > 0].head(5)  # Only positive factors
+                    
+                    if not risk_factors_df.empty:
+                        st.write("#### Top Risk Drivers")
+                        
+                        # Format factor names for readability
+                        risk_factors_df['Factor'] = risk_factors_df['Factor'].apply(
+                            lambda x: x.replace('_', ' ').title()
+                        )
+                        
+                        # Display as a bar chart
+                        fig = px.bar(
+                            risk_factors_df,
+                            x='Impact',
+                            y='Factor',
+                            orientation='h',
+                            color='Impact',
+                            color_continuous_scale='Reds'
+                        )
+                        fig.update_layout(height=300)
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("SHAP explanations not available for this employee.")
     else:
         st.write("No employees match the selected filters.")
 
-
-def display_recommendations_tab(df, predictions, explanations, features):
+def display_recommendations_tab(df, probabilities, explanations, features):
     """Display recommendations for retention strategies"""
     st.markdown('<p class="sub-header">Retention Recommendations</p>', unsafe_allow_html=True)
     
     # Add predictions to dataframe
     df_with_pred = df.copy()
-    df_with_pred['attrition_risk'] = predictions
+    df_with_pred['attrition_risk'] = probabilities
     
     # Generate risk clusters
     with st.spinner("Identifying risk patterns..."):
-        risk_clusters = identify_risk_clusters(df_with_pred, predictions, explanations, features)
+        risk_clusters = identify_risk_clusters(df_with_pred, probabilities, explanations, features)
     
     # Display risk clusters
     st.subheader("Risk Clusters")
