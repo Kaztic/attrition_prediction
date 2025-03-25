@@ -1,157 +1,104 @@
-# AI-Powered Employee Attrition Prediction System
+# Employee Attrition Prediction
 
-A comprehensive system for predicting employee attrition using machine learning, featuring both a FastAPI backend and a Streamlit dashboard.
+This project predicts employee attrition using machine learning techniques. It includes a FastAPI backend for data processing and a Streamlit frontend for visualization and interaction.
 
-## Features
+## Prerequisites
 
-- Synthetic data generation for testing and development
-- Feature engineering and preprocessing
-- Machine learning model training with SHAP explanations
-- FastAPI backend with RESTful endpoints
-- Interactive Streamlit dashboard for visualization
-- Automated testing script for all endpoints
+- Python 3.9 or higher
+- Conda (for environment management)
+- Git (for cloning the repository)
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd attrition-prediction
-```
+1. **Clone the repository:**
 
-2. Create and activate the conda environment:
-```bash
-conda env create -f environment.yml
-conda activate attrition-prediction
-```
+   ```bash
+   git clone <repository-url>
+   cd attrition-prediction
+   ```
 
-## Usage
+2. **Create a new Conda environment:**
 
-### FastAPI Backend
+   ```bash
+   conda create --name attrition-prediction python=3.9
+   ```
 
-The system provides the following RESTful endpoints:
+3. **Activate the Conda environment:**
 
-1. **Root Endpoint**
-   - URL: `GET /`
-   - Description: Returns API information and available endpoints
+   ```bash
+   conda activate attrition-prediction
+   ```
 
-2. **Generate Data**
-   - URL: `POST /generate-data`
-   - Description: Generates synthetic employee data
-   - Request body:
-     ```json
-     {
-         "n_employees": 1000
-     }
-     ```
+4. **Install the required packages:**
 
-3. **Process Data**
-   - URL: `POST /process-data`
-   - Description: Processes and engineers features from the employee data
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-4. **Train Model**
-   - URL: `POST /train-model`
-   - Description: Trains and saves the attrition prediction model
+## Running the Application
 
-5. **Predict**
-   - URL: `POST /predict`
-   - Description: Makes predictions for individual employees
-   - Request body:
-     ```json
-     {
-         "employee_data": {
-             "age": 35,
-             "department": "Sales",
-             "distance_from_home": 10,
-             "education": 3,
-             "environment_satisfaction": 4,
-             "job_involvement": 3,
-             "job_level": 2,
-             "job_satisfaction": 4,
-             "monthly_income": 5000,
-             "num_companies_worked": 2,
-             "percent_salary_hike": 15,
-             "performance_rating": 3,
-             "relationship_satisfaction": 4,
-             "stock_option_level": 1,
-             "total_working_years": 8,
-             "training_times_last_year": 2,
-             "work_life_balance": 3,
-             "years_at_company": 5,
-             "years_in_current_role": 3,
-             "years_since_last_promotion": 2,
-             "years_with_curr_manager": 3
-         }
-     }
-     ```
+### Option 1: Using the Run Script (Recommended)
 
-### Automated Testing
+The easiest way to run the application is to use the provided script:
 
-The repository includes a test script that automatically tests all endpoints and launches the Streamlit dashboard:
+1. **Make the script executable:**
 
-```bash
-./test_and_run.sh
-```
+   ```bash
+   chmod +x test_and_run.sh
+   ```
+
+2. **Run the script:**
+
+   ```bash
+   ./test_and_run.sh
+   ```
 
 This script will:
-1. Check and install required dependencies
-2. Start the FastAPI server
-3. Test all endpoints in sequence
-4. Stop the FastAPI server
-5. Launch the Streamlit dashboard
+- Start the FastAPI server
+- Launch the Streamlit application
+- Handle proper shutdown of both services when you're done
 
-### Streamlit Dashboard
+### Option 2: Manual Startup
 
-The dashboard provides:
-- Overview of attrition risk across the organization
-- Detailed employee analysis with risk factors
-- Retention recommendations based on risk patterns
-- Interactive visualizations and filters
+If you prefer to run the services manually:
 
-To run the dashboard directly:
-```bash
-streamlit run app/app.py
-```
+1. **Start the FastAPI server:**
+
+   ```bash
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+
+2. **Launch the Streamlit app (in a new terminal):**
+
+   ```bash
+   streamlit run app/app.py
+   ```
+
+3. **Access the application:**
+
+   Open your web browser and navigate to `http://localhost:8501` to access the Streamlit app.
 
 ## Project Structure
 
-```
-attrition_prediction/
-├── app/
-│   ├── __init__.py
-│   └── app.py              # Streamlit dashboard
-├── data/                   # Data storage
-├── models/                 # Saved model artifacts
-├── src/
-│   ├── data_generator.py   # Synthetic data generation
-│   ├── feature_engineering.py  # Feature processing
-│   ├── model.py           # Model training and prediction
-│   └── recommendation_engine.py  # Risk analysis
-├── environment.yml        # Conda environment
-├── main.py               # FastAPI application
-└── test_and_run.sh       # Test script
-```
+- `src/`: Contains the source code for data generation, feature engineering, and model building
+- `app/`: Contains the Streamlit application code
+- `data/`: Directory for storing generated and processed data
+- `models/`: Directory for storing trained models
+- `requirements.txt`: Lists all the Python packages required for the project
+- `test_and_run.sh`: Script to start both the FastAPI server and Streamlit app
 
-## Dependencies
+## API Features
 
-- Python 3.9
-- FastAPI
-- Streamlit
-- Pandas
-- NumPy
-- Scikit-learn
-- SHAP
-- Plotly
-- Other dependencies listed in environment.yml
+- Data generation and processing
+- Model training and evaluation
+- Real-time attrition predictions
+- Manager and employee dialogue generation using Gemini AI
+- Retention recommendations
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+Feel free to open issues or submit pull requests for any improvements or bug fixes.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
