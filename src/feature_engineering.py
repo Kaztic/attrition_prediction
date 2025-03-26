@@ -11,7 +11,7 @@ def engineer_features(df):
     Parameters:
     -----------
     df : pandas.DataFrame
-        DataFrame containing employee data
+        DataFrame containing employee data from Gemini generator
         
     Returns:
     --------
@@ -21,60 +21,81 @@ def engineer_features(df):
     # Create a copy of the DataFrame to avoid warnings
     df_processed = df.copy()
     
-    # Calculate team and department level metrics
-    df_processed['team_attrition_rate'] = df_processed.groupby('team')['attrition'].transform('mean')
-    df_processed['dept_attrition_rate'] = df_processed.groupby('department')['attrition'].transform('mean')
+    # Convert numeric columns
+    numeric_columns = [
+        'Tenure', 'Promotions', 'LastPromotionYearsAgo', 'PastPerformance',
+        'SkillRelevance', 'TrainingParticipation', 'EventActivity',
+        'FeedbackScore', 'SentimentScore', 'TeamAttritionRate',
+        'LocationChanges', 'RoleChanges', 'WorkLifeBalance',
+        'LeavePattern', 'RecognitionCount', 'AwardsReceived'
+    ]
     
-    # Calculate manager level metrics
-    df_processed['manager_avg_performance'] = df_processed.groupby('manager')['performance_score'].transform('mean')
-    df_processed['manager_team_size'] = df_processed.groupby('manager')['employee_id'].transform('count')
+    for col in numeric_columns:
+        if col in df_processed.columns:
+            df_processed[col] = pd.to_numeric(df_processed[col], errors='coerce')
     
-    # Tenure-based features
+    # Calculate career progression metrics
     df_processed['promotion_delay'] = np.where(
-        (df_processed['tenure'] - df_processed['last_promotion'] > 3) & 
-        (df_processed['last_promotion'] > 0), 
+        (df_processed['Tenure'] - df_processed['LastPromotionYearsAgo'] > 3) & 
+        (df_processed['LastPromotionYearsAgo'] > 0), 
         1, 0
     )
-    df_processed['never_promoted'] = np.where(df_processed['last_promotion'] == 0, 1, 0)
+    df_processed['never_promoted'] = np.where(df_processed['LastPromotionYearsAgo'] == 0, 1, 0)
     
     # Create a composite engagement score
     df_processed['engagement_score'] = (
-        df_processed['training_hours'] / 100 * 0.3 + 
-        df_processed['survey_satisfaction'] / 5 * 0.4 +
-        (5 - df_processed['peer_attrition_last60d']) / 5 * 0.3  # inverse of peer attrition
+        df_processed['TrainingParticipation'] / df_processed['TrainingParticipation'].max() * 0.3 + 
+        df_processed['FeedbackScore'] / 5 * 0.3 +
+        df_processed['EventActivity'] / df_processed['EventActivity'].max() * 0.2 +
+        df_processed['WorkLifeBalance'] / 5 * 0.2
     )
     
     # Growth opportunity indicators
     df_processed['stagnation_risk'] = np.where(
-        (df_processed['role_changes'] == 0) & 
-        (df_processed['tenure'] > 2) & 
-        (df_processed['performance_score'] >= 4),
+        (df_processed['RoleChanges'] == 0) & 
+        (df_processed['Tenure'] > 2) & 
+        (df_processed['PastPerformance'] >= 1.5),
         1, 0
     )
     
-    # Performance vs. peer comparison (within department)
-    df_processed['performance_above_dept_avg'] = np.where(
-        df_processed['performance_score'] > df_processed.groupby('department')['performance_score'].transform('mean'),
+    # Performance vs. peer comparison
+    df_processed['performance_above_avg'] = np.where(
+        df_processed['PastPerformance'] > df_processed['PastPerformance'].mean(),
         1, 0
     )
     
-    # Work-life balance indicator
-    max_leave_days = df_processed['leave_days_taken'].max()
-    df_processed['leave_utilization'] = df_processed['leave_days_taken'] / max_leave_days
+    # Work-life balance indicators
+    df_processed['leave_utilization'] = df_processed['LeavePattern'] / df_processed['LeavePattern'].max()
+    
+    # Career satisfaction indicators
+    df_processed['career_satisfaction'] = (
+        df_processed['PastPerformance'] / 1.8 * 0.3 +
+        df_processed['SkillRelevance'] * 0.2 +
+        df_processed['WorkLifeBalance'] / 5 * 0.3 +
+        df_processed['SentimentScore'] * 0.2
+    )
+    
+    # Risk factors for attrition
+    df_processed['attrition_risk_score'] = (
+        (df_processed['TeamAttritionRate'] * 0.3) +
+        (df_processed['ManagerAttrition'] * 0.2) +
+        (1 - df_processed['WorkLifeBalance'] / 5) * 0.2 +
+        (1 - df_processed['career_satisfaction']) * 0.3
+    )
     
     # Interaction terms
     df_processed['high_performer_no_promo'] = np.where(
-        (df_processed['performance_score'] >= 4) & 
+        (df_processed['PastPerformance'] >= 1.5) & 
         (df_processed['promotion_delay'] == 1),
         1, 0
     )
     
     # Normalize certain features for model consumption
-    # This helps with model convergence and interpretation
-    for col in ['training_hours', 'peer_attrition_last60d', 'leave_days_taken']:
-        col_max = df_processed[col].max()
-        if col_max > 0:  # Avoid division by zero
-            df_processed[f'{col}_normalized'] = df_processed[col] / col_max
+    for col in ['TrainingParticipation', 'EventActivity', 'LeavePattern']:
+        if col in df_processed.columns:
+            col_max = df_processed[col].max()
+            if col_max > 0:  # Avoid division by zero
+                df_processed[f'{col}_normalized'] = df_processed[col] / col_max
     
     return df_processed
 
@@ -82,7 +103,7 @@ def engineer_features(df):
 if __name__ == "__main__":
     # Test the feature engineering when run directly
     try:
-        df = pd.read_csv("../data/employee_data.csv")
+        df = pd.read_csv("structured_employee_data.csv")
         processed_df = engineer_features(df)
         print("Original features:", df.columns.tolist())
         print("\nAll features after engineering:", processed_df.columns.tolist())
