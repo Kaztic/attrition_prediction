@@ -11,6 +11,10 @@ import os
 # Configure Gemini API Key
 genai.configure(api_key="AIzaSyANO7hs2mZT9RmJotgemri_oMQGo8vJ0p4")
 
+# Create data directory if it doesn't exist
+data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+os.makedirs(data_dir, exist_ok=True)
+
 # Define the prompt for structured CSV output
 PROMPT = """
 Generate a highly realistic, logically consistent employee record for attrition prediction. 
@@ -125,7 +129,7 @@ def transform_employee_data(input_file, output_file):
             cleaned_lines.append(line)
     
     # Save cleaned content to a temporary file
-    cleaned_file_path = "cleaned_employee_data.csv"
+    cleaned_file_path = os.path.join(data_dir, "cleaned_employee_data.csv")
     with open(cleaned_file_path, "w", encoding="utf-8") as file:
         file.writelines(cleaned_lines)
     
@@ -191,7 +195,7 @@ if records:
     full_csv_data = "\n".join(records)
 
     # Save to CSV file correctly formatted
-    output_file = "gemini_generated_employee_data.csv"
+    output_file = os.path.join(data_dir, "gemini_generated_employee_data.csv")
     with open(output_file, "w", newline="", encoding="utf-8") as file:
         reader = csv.reader(io.StringIO(full_csv_data))
         writer = csv.writer(file)
@@ -202,7 +206,7 @@ if records:
     print(f"Raw data saved to: {os.path.abspath(output_file)}")
 
     input_file = output_file  # Input generated file
-    output_file = "structured_employee_data.csv"  # Output transformed file
+    output_file = os.path.join(data_dir, "structured_employee_data.csv")  # Output transformed file
     transform_employee_data(input_file, output_file)
 
     print("✅ Realistic employee dataset successfully generated and saved as CSV!")

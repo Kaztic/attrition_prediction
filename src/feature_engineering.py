@@ -3,6 +3,10 @@
 
 import pandas as pd
 import numpy as np
+import os
+
+# Get the data directory path
+data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 
 def engineer_features(df):
     """
@@ -103,10 +107,23 @@ def engineer_features(df):
 if __name__ == "__main__":
     # Test the feature engineering when run directly
     try:
-        df = pd.read_csv("structured_employee_data.csv")
+        input_file = os.path.join(data_dir, "structured_employee_data.csv")
+        output_file = os.path.join(data_dir, "processed_employee_data.csv")
+        
+        print(f"Reading data from: {os.path.abspath(input_file)}")
+        df = pd.read_csv(input_file)
+        
         processed_df = engineer_features(df)
-        print("Original features:", df.columns.tolist())
+        
+        # Save the processed data
+        processed_df.to_csv(output_file, index=False)
+        print(f"Processed data saved to: {os.path.abspath(output_file)}")
+        
+        print("\nOriginal features:", df.columns.tolist())
         print("\nAll features after engineering:", processed_df.columns.tolist())
         print("\nNew features:", set(processed_df.columns) - set(df.columns))
     except FileNotFoundError:
-        print("Data file not found. Generate data first using data_generator.py")
+        print(f"Data file not found at: {os.path.abspath(input_file)}")
+        print("Generate data first using data_generator.py")
+    except Exception as e:
+        print(f"Error processing data: {str(e)}")
