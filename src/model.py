@@ -213,5 +213,35 @@ if __name__ == "__main__":
     
     print("Model Evaluation Metrics:")
     
-    for metric, value in result['metrics'].items():
+    metrics = result['metrics']
+    for metric, value in metrics.items():
         print(f"{metric}: {value}")
+    
+    # Plotting graphs
+    # 1. ROC AUC vs Confusion Matrix
+    roc_auc = metrics['roc_auc']
+    confusion_matrix_values = metrics['confusion_matrix']
+    tn, fp, fn, tp = confusion_matrix_values[0][0], confusion_matrix_values[0][1], confusion_matrix_values[1][0], confusion_matrix_values[1][1]
+
+    plt.figure(figsize=(10, 5))
+    plt.bar(['True Negative', 'False Positive', 'False Negative', 'True Positive'], [tn, fp, fn, tp], color='skyblue')
+    plt.axhline(y=roc_auc, color='r', linestyle='--', label=f"ROC AUC: {roc_auc:.2f}")
+    plt.title("ROC AUC vs Confusion Matrix")
+    plt.ylabel("Count")
+    plt.legend()
+    plt.savefig('roc_auc_vs_confusion_matrix.png', format='png', dpi=600)
+    plt.show()
+
+    # 2. Precision vs Recall
+    precision = metrics['precision']
+    recall = metrics['recall']
+
+    plt.figure(figsize=(6, 6))
+    plt.scatter(precision, recall, color='blue', label="Precision vs Recall")
+    plt.title("Precision vs Recall")
+    plt.xlabel("Precision")
+    plt.ylabel("Recall")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig('precision_vs_recall.png', format='png', dpi=600)
+    plt.show()
