@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="Employee Attrition Analytics",
     page_icon="👥",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 import pandas as pd
@@ -33,231 +33,274 @@ from src.model import AttritionPredictionModel
 from src.model import AttritionPredictionModel
 from src.recommendation_engine import generate_recommendations, identify_risk_clusters
 
-# Custom CSS with modern design
-st.markdown("""
+# Dark mode colors - permanent dark mode
+bg_color = "#0f172a"  # Dark blue background
+card_bg = "#1e293b"  # Slightly lighter blue for cards
+text_color = "#f1f5f9"  # Light gray text
+muted_text = "#94a3b8"  # Muted gray text
+border_color = "#334155"  # Border color
+highlight_color = "#3b82f6"  # Highlight blue
+
+# Custom CSS with modern dark design
+st.markdown(f"""
 <style>
     /* Modern Typography */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
     
     /* Main Layout */
-    .main {
-        background-color: #f8fafc;
+    .main {{
+        background-color: {bg_color};
         max-width: 1200px;
         margin: 0 auto;
         padding: 0 1rem;
-    }
+        color: {text_color};
+    }}
+    
+    .stApp {{
+        background-color: {bg_color};
+    }}
     
     /* Headers */
-    .main-header {
+    .main-header {{
         font-family: 'Poppins', sans-serif;
         font-size: 2.5rem;
         font-weight: 700;
-        color: #1e293b;
+        color: {text_color};
         margin-bottom: 1rem;
         letter-spacing: -0.02em;
-    }
+    }}
     
-    .sub-header {
+    .sub-header {{
         font-family: 'Poppins', sans-serif;
         font-size: 1.5rem;
         font-weight: 600;
-        color: #334155;
+        color: {text_color};
         margin-bottom: 1.5rem;
         letter-spacing: -0.01em;
-    }
+    }}
     
     /* Cards */
-    .stCard {
-        background-color: white;
+    .stCard {{
+        background-color: {card_bg};
         border-radius: 1rem;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid {border_color};
         margin-bottom: 1.5rem;
         max-width: 100%;
-    }
+    }}
     
     /* Metric Cards */
-    .metric-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    .metric-card {{
+        background: linear-gradient(135deg, {card_bg} 0%, rgba(30, 41, 59, 0.8) 100%);
         border-radius: 1rem;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        border: 1px solid {border_color};
         transition: transform 0.2s;
         max-width: 100%;
-    }
+    }}
     
-    .metric-card:hover {
+    .metric-card:hover {{
         transform: translateY(-2px);
-    }
+        box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.3);
+    }}
     
-    .metric-value {
+    .metric-value {{
         font-family: 'Poppins', sans-serif;
         font-size: 2rem;
         font-weight: 700;
-        color: #1e293b;
+        color: {text_color};
         margin-bottom: 0.5rem;
-    }
+    }}
     
-    .metric-label {
+    .metric-label {{
         font-family: 'Poppins', sans-serif;
         font-size: 0.875rem;
-        color: #64748b;
+        color: {muted_text};
         text-transform: uppercase;
         letter-spacing: 0.05em;
-    }
+    }}
     
     /* Risk Indicators */
-    .risk-high {
+    .risk-high {{
         color: #ffffff;
         font-weight: 600;
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
         background-color: #dc2626;
-    }
+    }}
     
-    .risk-medium {
+    .risk-medium {{
         color: #ffffff;
         font-weight: 600;
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
         background-color: #f59e0b;
-    }
+    }}
     
-    .risk-low {
+    .risk-low {{
         color: #ffffff;
         font-weight: 600;
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
         background-color: #059669;
-    }
+    }}
     
     /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
+    .stTabs [data-baseweb="tab-list"] {{
         gap: 1rem;
         background-color: transparent;
-    }
+    }}
     
-    .stTabs [data-baseweb="tab"] {
+    .stTabs [data-baseweb="tab"] {{
         font-family: 'Poppins', sans-serif;
         font-weight: 500;
-        color: #64748b;
+        color: {muted_text};
         padding: 0.75rem 1.5rem;
         border-radius: 0.75rem;
         transition: all 0.2s;
-        background-color: white;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
+        background-color: {card_bg};
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }}
     
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #1e293b;
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {{
+        background-color: {highlight_color};
         color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }}
     
     /* Buttons */
-    .stButton button {
+    .stButton button {{
         font-family: 'Poppins', sans-serif;
         font-weight: 500;
-        background-color: #1e293b;
+        background-color: {highlight_color};
         color: white;
         border-radius: 0.75rem;
         padding: 0.75rem 1.5rem;
         transition: all 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }}
     
-    .stButton button:hover {
-        background-color: #334155;
+    .stButton button:hover {{
         transform: translateY(-1px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }}
     
     /* Select Boxes */
-    .stSelectbox select {
-        background-color: white;
-        border: 1px solid #e2e8f0;
+    .stSelectbox select {{
+        background-color: {card_bg};
+        border: 1px solid {border_color};
         border-radius: 0.75rem;
-        color: #1e293b;
+        color: {text_color};
         padding: 0.75rem;
         font-family: 'Poppins', sans-serif;
-    }
+    }}
     
     /* Sliders */
-    .stSlider > div > div > div {
-        background-color: #1e293b;
-    }
+    .stSlider > div > div > div {{
+        background-color: {highlight_color};
+    }}
     
     /* Data Tables */
-    .dataframe {
+    .dataframe {{
         font-family: 'Poppins', sans-serif;
         border-radius: 1rem;
         overflow: hidden;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        background-color: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        background-color: {card_bg};
         max-width: 100%;
-    }
+    }}
     
-    .dataframe thead th {
-        background-color: #f8fafc;
+    .dataframe thead th {{
+        background-color: #2d3748;
         font-weight: 600;
-        color: #1e293b;
+        color: {text_color};
         padding: 1rem;
-    }
+    }}
     
-    .dataframe tbody td {
+    .dataframe tbody td {{
         padding: 1rem;
-        color: #64748b;
-        background-color: white;
-    }
+        color: {muted_text};
+        background-color: {card_bg};
+    }}
     
-    .dataframe tbody tr:nth-child(even) {
-        background-color: #f8fafc;
-    }
+    .dataframe tbody tr:nth-child(even) {{
+        background-color: #2d3748;
+    }}
     
-    /* Sidebar */
-    .css-1d391kg {
-        background-color: white;
-        border-right: 1px solid #e2e8f0;
-    }
-    
-    .sidebar .sidebar-content {
-        padding: 2rem;
-    }
+    /* Text elements */
+    div[data-testid="stText"] p {{
+        color: {text_color};
+    }}
     
     /* Charts */
-    .js-plotly-plot {
+    .js-plotly-plot {{
         border-radius: 1rem !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-        background-color: white !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important;
+        background-color: {card_bg} !important;
         max-width: 100% !important;
-    }
+    }}
+    
+    /* Input fields */
+    div[data-baseweb="input"] input {{
+        background-color: #2d3748;
+        color: {text_color};
+        border: 1px solid {border_color};
+    }}
+    
+    /* Expanders */
+    .streamlit-expanderHeader {{
+        background-color: {card_bg};
+        color: {text_color};
+        border-radius: 0.5rem;
+    }}
+    
+    /* Info boxes */
+    .stAlert {{
+        background-color: #3b82f6;
+        color: white;
+    }}
+    
+    /* Debug expander */
+    .streamlit-expanderContent {{
+        background-color: {card_bg};
+        color: {text_color};
+        border: 1px solid {border_color};
+    }}
+    
+    /* Hide Streamlit's default sidebar */
+    [data-testid="stSidebar"] {{
+        display: none !important;
+    }}
     
     /* Responsive Design */
-    @media (max-width: 768px) {
-        .main {
+    @media (max-width: 768px) {{
+        .main {{
             padding: 0 0.5rem;
-        }
+        }}
         
-        .main-header {
+        .main-header {{
             font-size: 2rem;
-        }
+        }}
         
-        .sub-header {
+        .sub-header {{
             font-size: 1.25rem;
-        }
+        }}
         
-        .metric-card {
+        .metric-card {{
             padding: 1rem;
-        }
+        }}
         
-        .metric-value {
+        .metric-value {{
             font-size: 1.5rem;
-        }
-    }
+        }}
+    }}
 </style>
 """, unsafe_allow_html=True)
+
+# Display app title
+st.markdown('<h1 class="main-header">Employee Attrition Analytics</h1>', unsafe_allow_html=True)
 
 @st.cache_data
 def load_data():
@@ -506,7 +549,7 @@ def format_risk_score(score):
 
 def display_overview_tab(df, transformed_df, probabilities, adjusted_probabilities, features, explanations):
     """Display the overview tab with key metrics and visualizations"""
-    st.markdown('<h1 class="main-header">Employee Attrition Analytics</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Dashboard Overview</h1>', unsafe_allow_html=True)
     
     # Employee Search
     with st.container():
@@ -520,7 +563,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
             if st.button("Search", key="search_btn"):
                 if search_id in df.index:
                     st.session_state.selected_employee = search_id
-                    st.session_state.active_tab = 1  # Switch to Employee Analysis tab
+                    st.session_state.switch_to_employee_tab = True
                     st.experimental_rerun()
                 else:
                     st.error("Employee ID not found")
@@ -709,19 +752,24 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                                 title="Attrition Rate by Business Unit",
                                 labels=dict(x="Business Unit", y="", color="Attrition Rate"),
                                 aspect="auto",
-                                color_continuous_scale=['#2ecc71', '#f1c40f', '#e74c3c']  # Green to Yellow to Red
+                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
                             )
                             
                             # Update layout
                             fig_bu.update_layout(
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Poppins'),
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family='Poppins', color=text_color),
                                 xaxis_title="Business Unit",
                                 yaxis_title="",
                                 yaxis_visible=False,
                                 coloraxis_colorbar_title="Attrition Rate",
-                                height=300  # Reduced height for faster rendering
+                                coloraxis_colorbar=dict(
+                                    tickfont=dict(color=text_color),
+                                    title=dict(font=dict(color=text_color))
+                                ),
+                                height=300,
+                                margin=dict(l=10, r=10, t=50, b=50)
                             )
                             
                             # Add hover template
@@ -743,18 +791,19 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                                 y='Attrition Rate',
                                 title="Attrition Rate by Business Unit",
                                 color='Attrition Rate',
-                                color_continuous_scale=['#2ecc71', '#f1c40f', '#e74c3c']  # Green to Yellow to Red
+                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
                             )
                             
                             # Update layout
                             fig_bu.update_layout(
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Poppins'),
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family='Poppins', color=text_color),
                                 xaxis_title="Business Unit",
                                 yaxis_title="Attrition Rate",
                                 yaxis_tickformat='.1%',
-                                height=400  # Slightly taller for bar chart
+                                height=400,
+                                margin=dict(l=10, r=10, t=50, b=50)
                             )
                             
                             # Add hover template
@@ -798,15 +847,16 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                                 y='Employee Count',
                                 title="Employee Count by Business Unit",
                                 color='Employee Count',
-                                color_continuous_scale=['#d1d5db', '#6366f1']  # Grey to Purple
+                                color_continuous_scale=['#94a3b8', '#818cf8', '#4f46e5']  # Slate to indigo
                             )
                             
                             # Update layout
                             fig_count.update_layout(
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Poppins'),
-                                height=300
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family='Poppins', color=text_color),
+                                height=300,
+                                margin=dict(l=10, r=10, t=50, b=50)
                             )
                             
                             st.plotly_chart(fig_count, use_container_width=True)
@@ -874,19 +924,24 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                                 title="Attrition Rate by Region",
                                 labels=dict(x="Region", y="", color="Attrition Rate"),
                                 aspect="auto",
-                                color_continuous_scale=['#2ecc71', '#f1c40f', '#e74c3c']  # Green to Yellow to Red
+                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
                             )
                             
                             # Update layout
                             fig_region.update_layout(
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Poppins'),
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family='Poppins', color=text_color),
                                 xaxis_title="Region",
                                 yaxis_title="",
                                 yaxis_visible=False,
                                 coloraxis_colorbar_title="Attrition Rate",
-                                height=300  # Reduced height for faster rendering
+                                coloraxis_colorbar=dict(
+                                    tickfont=dict(color=text_color),
+                                    title=dict(font=dict(color=text_color))
+                                ),
+                                height=300,
+                                margin=dict(l=10, r=10, t=50, b=50)
                             )
                             
                             # Add hover template
@@ -908,18 +963,19 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                                 y='Attrition Rate',
                                 title="Attrition Rate by Region",
                                 color='Attrition Rate',
-                                color_continuous_scale=['#2ecc71', '#f1c40f', '#e74c3c']  # Green to Yellow to Red
+                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
                             )
                             
                             # Update layout
                             fig_region.update_layout(
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Poppins'),
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family='Poppins', color=text_color),
                                 xaxis_title="Region",
                                 yaxis_title="Attrition Rate",
                                 yaxis_tickformat='.1%',
-                                height=400  # Slightly taller for bar chart
+                                height=400,
+                                margin=dict(l=10, r=10, t=50, b=50)
                             )
                             
                             # Add hover template
@@ -963,15 +1019,16 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                                 y='Employee Count',
                                 title="Employee Count by Region",
                                 color='Employee Count',
-                                color_continuous_scale=['#d1d5db', '#6366f1']  # Grey to Purple
+                                color_continuous_scale=['#94a3b8', '#818cf8', '#4f46e5']  # Slate to indigo
                             )
                             
                             # Update layout
                             fig_count.update_layout(
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Poppins'),
-                                height=300
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family='Poppins', color=text_color),
+                                height=300,
+                                margin=dict(l=10, r=10, t=50, b=50)
                             )
                             
                             st.plotly_chart(fig_count, use_container_width=True)
@@ -1023,14 +1080,44 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
         title=f"Risk Scores vs {selected_factor.replace('_', ' ').title()}",
         labels={'Factor': selected_factor.replace('_', ' ').title(), 'Risk Score': 'Attrition Risk (%)'},
         color='Risk Score',
-        color_continuous_scale=['#2ecc71', '#f1c40f', '#e74c3c']  # Green to Yellow to Red
+        color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
     )
+    
+    # Update layout with dark mode friendly styling
     fig.update_layout(
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(family='Poppins'),
-        height=400  # Reduced height for faster rendering
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='Poppins', color=text_color),
+        height=400,
+        margin=dict(l=10, r=10, t=50, b=50),
+        title=dict(
+            font=dict(color=text_color, size=18)
+        ),
+        xaxis=dict(
+            gridcolor='rgba(150,150,150,0.2)',
+            zerolinecolor='rgba(150,150,150,0.2)',
+            tickfont=dict(color=text_color),
+            title=dict(font=dict(color=text_color, size=14))
+        ),
+        yaxis=dict(
+            gridcolor='rgba(150,150,150,0.2)',
+            zerolinecolor='rgba(150,150,150,0.2)',
+            tickfont=dict(color=text_color),
+            title=dict(font=dict(color=text_color, size=14))
+        ),
+        coloraxis_colorbar=dict(
+            tickfont=dict(color=text_color),
+            title=dict(font=dict(color=text_color))
+        )
     )
+    
+    # Add hover template
+    fig.update_traces(
+        hovertemplate="<b>%{x:.2f}</b><br>" +
+                    "Risk Score: <b>%{y:.1f}%</b><br>" +
+                    "<extra></extra>"
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
     
     # Display filtered employees at risk - only show top ones for performance
@@ -1058,25 +1145,24 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
             with col4:
                 if st.button("View Details", key=f"view_{row['Employee ID']}"):
                     st.session_state.selected_employee = row['Employee ID']
-                    st.session_state.active_tab = 1  # Set to Employee Analysis tab index
+                    st.session_state.switch_to_employee_tab = True
                     st.experimental_rerun()
 
 def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_probabilities, explanations, features, model):
     """Display the employee analysis tab with detailed insights"""
-    # Add back button at the top
-    with st.container():
-        col1, col2 = st.columns([1, 5])
-        with col1:
-            if st.button("← Back to Overview"):
-                st.session_state.active_tab = 0
-                st.experimental_rerun()
-    
+    # Display title
     st.markdown('<h1 class="main-header">Employee Analysis</h1>', unsafe_allow_html=True)
     
-    # Employee Selection - automatically select the employee from session state
+    # Employee Selection - handle None value for selected_employee
     with st.container():
         st.markdown('<h2 class="sub-header">Select Employee</h2>', unsafe_allow_html=True)
-        selected_employee = st.session_state.get('selected_employee', df.index[0])
+        selected_employee = st.session_state.get('selected_employee')
+        
+        # If selected_employee is None or not in the index, default to the first employee
+        if selected_employee is None or selected_employee not in df.index:
+            selected_employee = df.index[0]
+            
+        # Now we can safely get the index position
         employee_id = st.selectbox(
             "Choose an employee to analyze",
             options=df.index,
@@ -1291,68 +1377,57 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
     with st.container():
         st.markdown('<h2 class="sub-header">Risk Alerts</h2>', unsafe_allow_html=True)
         
-        # Check for role-based risk cluster - calculate once and cache
-        role_columns = [col for col in df.columns if col.startswith('RoleHistory_')]
-        employee_role = next((col for col in role_columns if raw_data[col] == 1), None)
-        
-        # Calculate high-risk clusters once and cache
-        clusters_cache_key = f"risk_clusters_{employee_id}"
-        if clusters_cache_key not in st.session_state:
-            role_cluster_found = False
-            bu_cluster_found = False
-    
-        if employee_role:
-            # Get count of high-risk role members without materializing the entire dataframe
-            role_high_risk_count = ((df[employee_role] == 1) & (adjusted_probabilities >= 0.70)).sum()
-            role_cluster_found = role_high_risk_count >= 3
-            role_high_risk_count_value = int(role_high_risk_count)
-        else:
-            role_cluster_found = False
-            role_high_risk_count_value = 0
-        
-        if employee_bu != 'Unknown':
-            # Get count of high-risk BU members without materializing the entire dataframe
-            bu_high_risk_count = ((df[f'Business_Unit_{employee_bu}'] == 1) & (adjusted_probabilities >= 0.70)).sum()
-            bu_cluster_found = bu_high_risk_count >= 5
-            bu_high_risk_count_value = int(bu_high_risk_count)
-        else:
-            bu_cluster_found = False
-            bu_high_risk_count_value = 0
-        
-        st.session_state[clusters_cache_key] = {
-            'role_cluster_found': role_cluster_found,
-            'role_high_risk_count': role_high_risk_count_value,
-            'bu_cluster_found': bu_cluster_found,
-            'bu_high_risk_count': bu_high_risk_count_value
-        }
-    
-        if role_cluster_found:
-            st.markdown(f"""
-                <div style='background-color: #dc2626; padding: 15px; margin: 10px 0; border-radius: 5px; color: white;'>
-                    <h5>⚠️ High Risk Role Alert</h5>
-                    <p><strong>Alert Level:</strong> Critical</p>
-                    <p><strong>Details:</strong> {role_high_risk_count} employees in the same role are at high risk of attrition.</p>
-                    <p><strong>Recommended Action:</strong> Review role-specific challenges and career progression opportunities.</p>
-                </div>
-            """, unsafe_allow_html=True)
-    
-        if bu_cluster_found:
-            st.markdown(f"""
-                <div style='background-color: #dc2626; padding: 15px; margin: 10px 0; border-radius: 5px; color: white;'>
-                    <h5>⚠️ High Risk Business Unit Alert</h5>
-                    <p><strong>Alert Level:</strong> Critical</p>
-                    <p><strong>Details:</strong> {bu_high_risk_count} members of {employee_bu} are at high risk of attrition.</p>
-                    <p><strong>Recommended Action:</strong> Review BU leadership and organizational structure.</p>
-                </div>
-            """, unsafe_allow_html=True)
-    
-        if not role_cluster_found and not bu_cluster_found:
-            st.markdown("""
-                <div style='background-color: #059669; padding: 15px; margin: 10px 0; border-radius: 5px; color: white;'>
-                    <h5>✓ No Risk Clusters Detected</h5>
-                    <p>No significant risk clusters found in this employee's role or business unit.</p>
-                </div>
-            """, unsafe_allow_html=True)
+        # Individual alerts based on specific risk factors
+        if risk_score >= 0.70:  # High risk threshold
+            if employee_data['tenure'] < 1.0:
+                st.markdown(f"""
+                    <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                        <h5>⚠️ New Hire Flight Risk</h5>
+                        <p><strong>Alert Level:</strong> Critical</p>
+                        <p><strong>Details:</strong> Employee is a high flight risk with less than 1 year tenure.</p>
+                        <p><strong>Recommended Action:</strong> Immediate engagement plan and retention interview.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            if employee_data['performance_score'] > 4.0:
+                st.markdown(f"""
+                    <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                        <h5>⚠️ High Performer Risk</h5>
+                        <p><strong>Alert Level:</strong> Critical</p>
+                        <p><strong>Details:</strong> High-performing employee at risk of leaving.</p>
+                        <p><strong>Recommended Action:</strong> Review compensation, advancement opportunities, and recognition.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            if employee_data['engagement_score'] < 0.5:
+                st.markdown(f"""
+                    <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                        <h5>⚠️ Low Engagement Alert</h5>
+                        <p><strong>Alert Level:</strong> Critical</p>
+                        <p><strong>Details:</strong> Employee has very low engagement score ({employee_data['engagement_score']:.2f}).</p>
+                        <p><strong>Recommended Action:</strong> Deep dive on engagement factors and workplace satisfaction.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+        elif risk_score >= 0.50:  # Medium risk threshold
+            if employee_data['tenure'] > 5.0 and employee_data['performance_score'] > 3.5:
+                st.markdown(f"""
+                    <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                        <h5>⚠️ Career Plateau Risk</h5>
+                        <p><strong>Alert Level:</strong> High</p>
+                        <p><strong>Details:</strong> Long-tenured good performer at risk of stagnation.</p>
+                        <p><strong>Recommended Action:</strong> Review career trajectory and development opportunities.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            if employee_data['engagement_score'] < 0.6:
+                st.markdown(f"""
+                    <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                        <h5>⚠️ Declining Engagement Alert</h5>
+                        <p><strong>Alert Level:</strong> High</p>
+                        <p><strong>Details:</strong> Employee shows below-average engagement levels.</p>
+                        <p><strong>Recommended Action:</strong> Regular check-ins and engagement improvement plan.</p>
+                    </div>
+                """, unsafe_allow_html=True)
     
     # Manager's Action Items - wrap in container for performance
     with st.container():
@@ -1436,9 +1511,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
 
 def main():
     """Main function to run the Streamlit app"""
-    # Initialize session state for tab selection and risk threshold
-    if 'active_tab' not in st.session_state:
-        st.session_state.active_tab = 0  # 0 for Overview, 1 for Employee Analysis
+    # Initialize session state if not exists
     if 'risk_threshold' not in st.session_state:
         st.session_state.risk_threshold = 50  # Medium risk threshold
     if 'selected_employee' not in st.session_state:
@@ -1508,17 +1581,22 @@ def main():
             st.error(f"Error generating predictions: {str(e)}")
             return
     
-    # Create tabs - use container for better performance
-    with st.container():
-        tab1, tab2 = st.tabs(["Overview", "Employee Analysis"])
+    # Create tabs for navigation - but use a different approach
+    # Instead of trying to programmatically click tabs, we'll display the content directly based on the session state
+    if 'switch_to_employee_tab' in st.session_state and st.session_state.switch_to_employee_tab:
+        # User wants to view employee details - clear the flag for next run
+        st.session_state.switch_to_employee_tab = False
+        # Display employee analysis directly
+        display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_probabilities, explanations, features, model)
+    else:
+        # Display tabs as normal
+        tab1, tab2 = st.tabs(["📊 Overview Dashboard", "👤 Employee Analysis"])
         
-        # Display content based on active tab
-        if st.session_state.active_tab == 0:
-            with tab1:
-                display_overview_tab(df, transformed_df, probabilities, adjusted_probabilities, features, explanations)
-        else:
-            with tab2:
-                display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_probabilities, explanations, features, model)
+        with tab1:
+            display_overview_tab(df, transformed_df, probabilities, adjusted_probabilities, features, explanations)
+        
+        with tab2:
+            display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_probabilities, explanations, features, model)
 
 if __name__ == "__main__":
     # Run the main app function
