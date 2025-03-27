@@ -306,7 +306,14 @@ st.markdown('<h1 class="main-header">Employee Attrition Analytics</h1>', unsafe_
 def load_data():
     """Load and cache the preprocessed employee data"""
     try:
-        df = pd.read_csv('data/preprocessed_employee_data.csv')
+        df1 = pd.read_csv('data/processed_employee_data.csv')
+        df2 = pd.read_csv('data/preprocessed_employee_data.csv')
+        # Find columns in df2 but not in df1
+        new_cols = df2.columns.difference(df1.columns)
+
+        # Add only missing columns to df1
+        df = df1.assign(**{col: df2[col] for col in new_cols})
+        print(df.columns)
         return df
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
