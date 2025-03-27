@@ -1,3 +1,15 @@
+---
+title: Attrition Prediction
+emoji: 😻
+colorFrom: blue
+colorTo: pink
+sdk: streamlit
+sdk_version: 1.44.0
+app_file: app.py
+pinned: false
+short_description: Predict the attrition like a pro..!
+---
+
 # Employee Attrition Prediction
 
 This project predicts employee attrition using machine learning techniques. It includes a FastAPI backend for data processing and a Streamlit frontend for visualization and interaction.
