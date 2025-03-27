@@ -654,11 +654,16 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
     
     # Apply filter only once and store results
     if 'filtered_data' not in st.session_state or st.session_state.get('last_filter') != st.session_state.risk_filter:
+        # Clear any existing filtered data
+        if 'filtered_data' in st.session_state:
+            del st.session_state['filtered_data']
+            
+        # Calculate new filtered data
         filtered_df = df[filtered_mask]
         filtered_probabilities = probabilities[filtered_mask]
         filtered_adjusted_probabilities = adjusted_probabilities[filtered_mask]
         filtered_transformed_df = transformed_df[filtered_mask]
-        
+    
         # Store in session state to avoid recalculation
         st.session_state.filtered_data = {
             'df': filtered_df,
@@ -678,363 +683,380 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
     MAX_DISPLAY = 100
     display_limit = min(len(filtered_df), MAX_DISPLAY)
     
-    # Business Unit and Region Heatmaps - only show if not too many in filtered set
-    if len(filtered_df) < 1000 or st.session_state.risk_filter == 'all':  # Only for manageable datasets
-        with st.container():
-            st.markdown('<h2 class="sub-header">Attrition Heatmaps</h2>', unsafe_allow_html=True)
+    # Debug information
+    with st.expander("Debug Information", expanded=False):
+        st.write(f"Current risk filter: {st.session_state.risk_filter}")
+        st.write(f"Original data size: {len(df)}")
+        st.write(f"Filtered data size: {len(filtered_df)}")
+        st.write(f"Last filter: {st.session_state.get('last_filter')}")
+        st.write(f"Filter mask sum: {filtered_mask.sum()}")
+        
+    # Business Unit and Region Heatmaps - show for all datasets now
+    with st.container():
+        st.markdown('<h2 class="sub-header">Attrition Heatmaps</h2>', unsafe_allow_html=True)
+        
+        # Add debug information in expander
+        with st.expander("Debug Info - Heatmap", expanded=False):
+            st.write(f"Current risk filter: {st.session_state.risk_filter}")
+            st.write(f"Filtered data size: {len(filtered_df)}")
+            st.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}")
             
-            # Add debug information in expander
-            with st.expander("Debug Info", expanded=False):
-                st.write(f"Current risk filter: {st.session_state.risk_filter}")
-                st.write(f"Filtered data size: {len(filtered_df)}")
-                st.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}")
-            
-            # Create tabs for different heatmap views
-            heatmap_tab1, heatmap_tab2 = st.tabs(["Business Unit Heatmap", "Region Heatmap"])
-            
-            with heatmap_tab1:
-                # Use a button to force refresh if needed
-                if st.button("Refresh BU Heatmap", key="refresh_bu_heatmap"):
-                    # Clear the cache for this specific visualization
-                    if "bu_heatmap_data" in st.session_state:
-                        del st.session_state["bu_heatmap_data"]
+        # Create tabs for different heatmap views
+        heatmap_tab1, heatmap_tab2 = st.tabs(["Business Unit Heatmap", "Region Heatmap"])
+        
+        with heatmap_tab1:
+            # Business Unit Heatmap
+            if st.button("Refresh BU Heatmap", key="refresh_bu_heatmap"):
+                # Clear the cache for this specific visualization
+                for key in list(st.session_state.keys()):
+                    if key.startswith('bu_heatmap_'):
+                        del st.session_state[key]
+                st.experimental_rerun()
                 
-                # Business Unit Heatmap
-                # Get all Business Unit columns
-                bu_columns = [col for col in df.columns if col.startswith('Business_Unit_')]
-                if bu_columns:
-                    # Add option to show all BUs
-                    show_all_bus = st.checkbox("Show all Business Units", value=False, key="show_all_bus")
-                    
-                    # Calculate or retrieve heatmap data
-                    bu_heatmap_key = f"bu_heatmap_{st.session_state.risk_filter}_{show_all_bus}"
-                    if bu_heatmap_key not in st.session_state:
-                        if show_all_bus:
-                            # Show all business units
-                            top_bu_columns = bu_columns
-                        else:
-                            # Show only top 5 by employee count
-                            top_bu_columns = sorted(bu_columns, key=lambda x: df[x].sum(), reverse=True)[:5]
-                            
-                        bu_attrition = pd.DataFrame()
-                        
-                        for bu_col in top_bu_columns:
-                            bu_name = bu_col.replace('Business_Unit_', '')
-                            # Filter for employees in this BU
-                            bu_employees = df[df[bu_col] == 1]
-                            if not bu_employees.empty:
-                                # Calculate overall attrition rate for this BU
-                                bu_attrition[bu_name] = [bu_employees['AttritionLabel'].mean()]
-                        
-                        st.session_state[bu_heatmap_key] = bu_attrition
+            # Get all Business Unit columns
+            bu_columns = [col for col in df.columns if col.startswith('Business_Unit_')]
+            if bu_columns:
+                # Add option to show all BUs
+                show_all_bus = st.checkbox("Show all Business Units", value=False, key="show_all_bus")
+                
+                # Calculate or retrieve heatmap data
+                bu_heatmap_key = f"bu_heatmap_{st.session_state.risk_filter}_{show_all_bus}"
+                if bu_heatmap_key not in st.session_state:
+                    if show_all_bus:
+                        # Show all business units
+                        top_bu_columns = bu_columns
                     else:
-                        bu_attrition = st.session_state[bu_heatmap_key]
+                        # Show only top 5 by employee count
+                        top_bu_columns = sorted(bu_columns, key=lambda x: df[x].sum(), reverse=True)[:5]
+                        
+                    bu_attrition = pd.DataFrame()
                     
-                    # Create heatmap with improved colors - make sure each chart has a unique key
-                    if not bu_attrition.empty:
-                        # Use timestamp in key to ensure uniqueness
-                        chart_key = f"bu_chart_{datetime.now().timestamp()}"
+                    for bu_col in top_bu_columns:
+                        bu_name = bu_col.replace('Business_Unit_', '')
+                        # Filter for employees in this BU
+                        bu_employees = df[df[bu_col] == 1]
+                        if not bu_employees.empty:
+                            # Calculate overall attrition rate for this BU
+                            bu_attrition[bu_name] = [bu_employees['AttritionLabel'].mean()]
+                    
+                    st.session_state[bu_heatmap_key] = bu_attrition
+                else:
+                    bu_attrition = st.session_state[bu_heatmap_key]
+                
+                # Create heatmap with improved colors - make sure each chart has a unique key
+                if not bu_attrition.empty:
+                    # Use timestamp in key to ensure uniqueness
+                    chart_key = f"bu_chart_{datetime.now().timestamp()}"
+                    
+                    # Add option to sort by attrition rate
+                    sort_by_rate = st.checkbox("Sort by attrition rate (highest first)", value=True, key="sort_bu_by_rate")
+                    
+                    if sort_by_rate and len(bu_attrition.columns) > 1:
+                        # Sort columns by attrition rate (highest first)
+                        sorted_columns = bu_attrition.loc[0].sort_values(ascending=False).index.tolist()
+                        bu_attrition = bu_attrition[sorted_columns]
+                    
+                    # Add horizontal bar chart option
+                    chart_type = st.radio("Chart type", ["Heatmap", "Bar chart"], key="bu_chart_type")
+                    
+                    if chart_type == "Heatmap":
+                        fig_bu = px.imshow(
+                            bu_attrition,
+                            title="Attrition Rate by Business Unit",
+                            labels=dict(x="Business Unit", y="", color="Attrition Rate"),
+                            aspect="auto",
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
+                        )
                         
-                        # Add option to sort by attrition rate
-                        sort_by_rate = st.checkbox("Sort by attrition rate (highest first)", value=True, key="sort_bu_by_rate")
+                        # Update layout
+                        fig_bu.update_layout(
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(family='Poppins', color=text_color),
+                            xaxis_title="Business Unit",
+                            yaxis_title="",
+                            yaxis_visible=False,
+                            coloraxis_colorbar_title="Attrition Rate",
+                            coloraxis_colorbar=dict(
+                                tickfont=dict(color=text_color),
+                                title=dict(font=dict(color=text_color))
+                            ),
+                            height=300,
+                            margin=dict(l=10, r=10, t=50, b=50)
+                        )
                         
-                        if sort_by_rate:
-                            # Sort columns by attrition rate (highest first)
-                            sorted_columns = bu_attrition.loc[0].sort_values(ascending=False).index.tolist()
-                            bu_attrition = bu_attrition[sorted_columns]
-                        
-                        # Add horizontal bar chart option
-                        chart_type = st.radio("Chart type", ["Heatmap", "Bar chart"], key="bu_chart_type")
-                        
-                        if chart_type == "Heatmap":
-                            fig_bu = px.imshow(
-                                bu_attrition,
-                                title="Attrition Rate by Business Unit",
-                                labels=dict(x="Business Unit", y="", color="Attrition Rate"),
-                                aspect="auto",
-                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
-                            )
-                            
-                            # Update layout
-                            fig_bu.update_layout(
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font=dict(family='Poppins', color=text_color),
-                                xaxis_title="Business Unit",
-                                yaxis_title="",
-                                yaxis_visible=False,
-                                coloraxis_colorbar_title="Attrition Rate",
-                                coloraxis_colorbar=dict(
-                                    tickfont=dict(color=text_color),
-                                    title=dict(font=dict(color=text_color))
-                                ),
-                                height=300,
-                                margin=dict(l=10, r=10, t=50, b=50)
-                            )
-                            
-                            # Add hover template
-                            fig_bu.update_traces(
-                                hovertemplate="<b>%{x}</b><br>" +
-                                            "Attrition Rate: <b>%{z:.1%}</b><br>" +
-                                            "<extra></extra>"
-                            )
-                        else:
-                            # Create bar chart
-                            bar_data = pd.DataFrame({
-                                'Business Unit': bu_attrition.columns,
-                                'Attrition Rate': bu_attrition.iloc[0].values
-                            })
-                            
-                            fig_bu = px.bar(
-                                bar_data,
-                                x='Business Unit',
-                                y='Attrition Rate',
-                                title="Attrition Rate by Business Unit",
-                                color='Attrition Rate',
-                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
-                            )
-                            
-                            # Update layout
-                            fig_bu.update_layout(
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font=dict(family='Poppins', color=text_color),
-                                xaxis_title="Business Unit",
-                                yaxis_title="Attrition Rate",
-                                yaxis_tickformat='.1%',
-                                height=400,
-                                margin=dict(l=10, r=10, t=50, b=50)
-                            )
-                            
-                            # Add hover template
-                            fig_bu.update_traces(
-                                hovertemplate="<b>%{x}</b><br>" +
-                                            "Attrition Rate: <b>%{y:.1%}</b><br>" +
-                                            "<extra></extra>"
-                            )
+                        # Add hover template
+                        fig_bu.update_traces(
+                            hovertemplate="<b>%{x}</b><br>" +
+                                        "Attrition Rate: <b>%{z:.1%}</b><br>" +
+                                        "<extra></extra>"
+                        )
                         
                         st.plotly_chart(fig_bu, use_container_width=True, key=chart_key)
-                        
-                        # Show raw data in expandable section
-                        with st.expander("View raw data"):
-                            st.dataframe(bu_attrition)
-                            
-                        # Add option to show employee counts
-                        if st.button("Show Employee Counts by Business Unit", key="show_bu_counts"):
-                            # Create dataframe with BU counts
-                            bu_counts = pd.DataFrame(index=["Count"])
-                            for bu_col in top_bu_columns:
-                                bu_name = bu_col.replace('Business_Unit_', '')
-                                bu_counts[bu_name] = [df[bu_col].sum()]
-                            
-                            # Sort by count if desired
-                            if sort_by_rate:
-                                bu_counts = bu_counts[sorted_columns]
-                            
-                            # Show counts
-                            st.subheader("Employee Counts by Business Unit")
-                            st.dataframe(bu_counts)
-                            
-                            # Create bar chart of counts
-                            count_data = pd.DataFrame({
-                                'Business Unit': bu_counts.columns,
-                                'Employee Count': bu_counts.iloc[0].values
-                            })
-                            
-                            fig_count = px.bar(
-                                count_data,
-                                x='Business Unit',
-                                y='Employee Count',
-                                title="Employee Count by Business Unit",
-                                color='Employee Count',
-                                color_continuous_scale=['#94a3b8', '#818cf8', '#4f46e5']  # Slate to indigo
-                            )
-                            
-                            # Update layout
-                            fig_count.update_layout(
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font=dict(family='Poppins', color=text_color),
-                                height=300,
-                                margin=dict(l=10, r=10, t=50, b=50)
-                            )
-                            
-                            st.plotly_chart(fig_count, use_container_width=True)
-                        else:
-                            st.info("Business Unit data is not available in the current dataset.")
-            
-            with heatmap_tab2:
-                # Use a button to force refresh if needed
-                if st.button("Refresh Region Heatmap", key="refresh_region_heatmap"):
-                    # Clear the cache for this specific visualization
-                    if "region_heatmap_data" in st.session_state:
-                        del st.session_state["region_heatmap_data"]
-                    
-                # Region Heatmap - only calculate if this tab is selected
-                # Get all Region columns
-                region_columns = [col for col in df.columns if col.startswith('Region_')]
-                if region_columns:
-                    # Add option to show all regions
-                    show_all_regions = st.checkbox("Show all Regions", value=False, key="show_all_regions")
-                    
-                    # Calculate or retrieve heatmap data
-                    region_heatmap_key = f"region_heatmap_{st.session_state.risk_filter}_{show_all_regions}"
-                    if region_heatmap_key not in st.session_state:
-                        # Only display top regions by employee count for performance, or all if selected
-                        if show_all_regions:
-                            # Show all regions
-                            top_region_columns = region_columns
-                        else:
-                            # Show only top 5 by employee count
-                            top_region_columns = sorted(region_columns, key=lambda x: df[x].sum(), reverse=True)[:5]
-                            
-                        region_attrition = pd.DataFrame()
-                        
-                        for region_col in top_region_columns:
-                            region_name = region_col.replace('Region_', '')
-                            # Filter for employees in this Region
-                            region_employees = df[df[region_col] == 1]
-                            if not region_employees.empty:
-                                # Calculate overall attrition rate for this Region
-                                region_attrition[region_name] = [region_employees['AttritionLabel'].mean()]
-                        
-                        st.session_state[region_heatmap_key] = region_attrition
                     else:
-                        region_attrition = st.session_state[region_heatmap_key]
+                        # Create bar chart
+                        bar_data = pd.DataFrame({
+                            'Business Unit': bu_attrition.columns,
+                            'Attrition Rate': bu_attrition.iloc[0].values
+                        })
+                        
+                        fig_bu = px.bar(
+                            bar_data,
+                            x='Business Unit',
+                            y='Attrition Rate',
+                            title="Attrition Rate by Business Unit",
+                            color='Attrition Rate',
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
+                        )
+                        
+                        # Update layout
+                        fig_bu.update_layout(
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(family='Poppins', color=text_color),
+                            xaxis_title="Business Unit",
+                            yaxis_title="Attrition Rate",
+                            yaxis_tickformat='.1%',
+                            height=400,
+                            margin=dict(l=10, r=10, t=50, b=50)
+                        )
+                        
+                        # Add hover template
+                        fig_bu.update_traces(
+                            hovertemplate="<b>%{x}</b><br>" +
+                                        "Attrition Rate: <b>%{y:.1%}</b><br>" +
+                                        "<extra></extra>"
+                        )
+                        
+                        st.plotly_chart(fig_bu, use_container_width=True, key=chart_key)
                     
-                    # Create heatmap with improved colors - make sure each chart has a unique key
-                    if not region_attrition.empty:
-                        # Use timestamp in key to ensure uniqueness
-                        chart_key = f"region_chart_{datetime.now().timestamp()}"
+                    # Show raw data in expandable section
+                    with st.expander("View raw data"):
+                        st.dataframe(bu_attrition)
                         
-                        # Add option to sort by attrition rate
-                        sort_by_rate = st.checkbox("Sort by attrition rate (highest first)", value=True, key="sort_region_by_rate")
+                    # Add option to show employee counts
+                    if st.button("Show Employee Counts by Business Unit", key="show_bu_counts"):
+                        # Create dataframe with BU counts
+                        bu_counts = pd.DataFrame(index=["Count"])
+                        for bu_col in top_bu_columns:
+                            bu_name = bu_col.replace('Business_Unit_', '')
+                            bu_counts[bu_name] = [df[bu_col].sum()]
                         
-                        if sort_by_rate:
-                            # Sort columns by attrition rate (highest first)
-                            sorted_columns = region_attrition.loc[0].sort_values(ascending=False).index.tolist()
-                            region_attrition = region_attrition[sorted_columns]
+                        # Sort by count if desired
+                        if sort_by_rate and 'sorted_columns' in locals() and len(sorted_columns) > 0:
+                            bu_counts = bu_counts[sorted_columns]
                         
-                        # Add horizontal bar chart option
-                        chart_type = st.radio("Chart type", ["Heatmap", "Bar chart"], key="region_chart_type")
+                        # Show counts
+                        st.subheader("Employee Counts by Business Unit")
+                        st.dataframe(bu_counts)
                         
-                        if chart_type == "Heatmap":
-                            fig_region = px.imshow(
-                                region_attrition,
-                                title="Attrition Rate by Region",
-                                labels=dict(x="Region", y="", color="Attrition Rate"),
-                                aspect="auto",
-                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
-                            )
-                            
-                            # Update layout
-                            fig_region.update_layout(
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font=dict(family='Poppins', color=text_color),
-                                xaxis_title="Region",
-                                yaxis_title="",
-                                yaxis_visible=False,
-                                coloraxis_colorbar_title="Attrition Rate",
-                                coloraxis_colorbar=dict(
-                                    tickfont=dict(color=text_color),
-                                    title=dict(font=dict(color=text_color))
-                                ),
-                                height=300,
-                                margin=dict(l=10, r=10, t=50, b=50)
-                            )
-                            
-                            # Add hover template
-                            fig_region.update_traces(
-                                hovertemplate="<b>%{x}</b><br>" +
-                                            "Attrition Rate: <b>%{z:.1%}</b><br>" +
-                                            "<extra></extra>"
-                            )
-                        else:
-                            # Create bar chart
-                            bar_data = pd.DataFrame({
-                                'Region': region_attrition.columns,
-                                'Attrition Rate': region_attrition.iloc[0].values
-                            })
-                            
-                            fig_region = px.bar(
-                                bar_data,
-                                x='Region',
-                                y='Attrition Rate',
-                                title="Attrition Rate by Region",
-                                color='Attrition Rate',
-                                color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
-                            )
-                            
-                            # Update layout
-                            fig_region.update_layout(
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font=dict(family='Poppins', color=text_color),
-                                xaxis_title="Region",
-                                yaxis_title="Attrition Rate",
-                                yaxis_tickformat='.1%',
-                                height=400,
-                                margin=dict(l=10, r=10, t=50, b=50)
-                            )
-                            
-                            # Add hover template
-                            fig_region.update_traces(
-                                hovertemplate="<b>%{x}</b><br>" +
-                                            "Attrition Rate: <b>%{y:.1%}</b><br>" +
-                                            "<extra></extra>"
-                            )
+                        # Create bar chart of counts
+                        count_data = pd.DataFrame({
+                            'Business Unit': bu_counts.columns,
+                            'Employee Count': bu_counts.iloc[0].values
+                        })
+                        
+                        fig_count = px.bar(
+                            count_data,
+                            x='Business Unit',
+                            y='Employee Count',
+                            title="Employee Count by Business Unit",
+                            color='Employee Count',
+                            color_continuous_scale=['#94a3b8', '#818cf8', '#4f46e5']  # Slate to indigo
+                        )
+                        
+                        # Update layout
+                        fig_count.update_layout(
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(family='Poppins', color=text_color),
+                            height=300,
+                            margin=dict(l=10, r=10, t=50, b=50)
+                        )
+                        
+                        st.plotly_chart(fig_count, use_container_width=True)
+                else:
+                    st.warning("No attrition data available for the selected business units.")
+            else:
+                st.info("Business Unit data is not available in the current dataset.")
+        
+        with heatmap_tab2:
+            # Region Heatmap
+            if st.button("Refresh Region Heatmap", key="refresh_region_heatmap"):
+                # Clear the cache for this specific visualization
+                for key in list(st.session_state.keys()):
+                    if key.startswith('region_heatmap_'):
+                        del st.session_state[key]
+                st.experimental_rerun()
+                
+            # Get all Region columns
+            region_columns = [col for col in df.columns if col.startswith('Region_')]
+            if region_columns:
+                # Add option to show all regions
+                show_all_regions = st.checkbox("Show all Regions", value=False, key="show_all_regions")
+                
+                # Calculate or retrieve heatmap data
+                region_heatmap_key = f"region_heatmap_{st.session_state.risk_filter}_{show_all_regions}"
+                if region_heatmap_key not in st.session_state:
+                    # Only display top regions by employee count for performance, or all if selected
+                    if show_all_regions:
+                        # Show all regions
+                        top_region_columns = region_columns
+                    else:
+                        # Show only top 5 by employee count
+                        top_region_columns = sorted(region_columns, key=lambda x: df[x].sum(), reverse=True)[:5]
+                        
+                    region_attrition = pd.DataFrame()
+                    
+                    for region_col in top_region_columns:
+                        region_name = region_col.replace('Region_', '')
+                        # Filter for employees in this Region
+                        region_employees = df[df[region_col] == 1]
+                        if not region_employees.empty:
+                            # Calculate overall attrition rate for this Region
+                            region_attrition[region_name] = [region_employees['AttritionLabel'].mean()]
+                    
+                    st.session_state[region_heatmap_key] = region_attrition
+                else:
+                    region_attrition = st.session_state[region_heatmap_key]
+                
+                # Create heatmap with improved colors - make sure each chart has a unique key
+                if not region_attrition.empty:
+                    # Use timestamp in key to ensure uniqueness
+                    chart_key = f"region_chart_{datetime.now().timestamp()}"
+                    
+                    # Add option to sort by attrition rate
+                    sort_by_rate = st.checkbox("Sort by attrition rate (highest first)", value=True, key="sort_region_by_rate")
+                    
+                    if sort_by_rate and len(region_attrition.columns) > 1:
+                        # Sort columns by attrition rate (highest first)
+                        sorted_columns = region_attrition.loc[0].sort_values(ascending=False).index.tolist()
+                        region_attrition = region_attrition[sorted_columns]
+                    
+                    # Add horizontal bar chart option
+                    chart_type = st.radio("Chart type", ["Heatmap", "Bar chart"], key="region_chart_type")
+                    
+                    if chart_type == "Heatmap":
+                        fig_region = px.imshow(
+                            region_attrition,
+                            title="Attrition Rate by Region",
+                            labels=dict(x="Region", y="", color="Attrition Rate"),
+                            aspect="auto",
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
+                        )
+                        
+                        # Update layout
+                        fig_region.update_layout(
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(family='Poppins', color=text_color),
+                            xaxis_title="Region",
+                            yaxis_title="",
+                            yaxis_visible=False,
+                            coloraxis_colorbar_title="Attrition Rate",
+                            coloraxis_colorbar=dict(
+                                tickfont=dict(color=text_color),
+                                title=dict(font=dict(color=text_color))
+                            ),
+                            height=300,
+                            margin=dict(l=10, r=10, t=50, b=50)
+                        )
+                        
+                        # Add hover template
+                        fig_region.update_traces(
+                            hovertemplate="<b>%{x}</b><br>" +
+                                        "Attrition Rate: <b>%{z:.1%}</b><br>" +
+                                        "<extra></extra>"
+                        )
                         
                         st.plotly_chart(fig_region, use_container_width=True, key=chart_key)
+                    else:
+                        # Create bar chart
+                        bar_data = pd.DataFrame({
+                            'Region': region_attrition.columns,
+                            'Attrition Rate': region_attrition.iloc[0].values
+                        })
                         
-                        # Show raw data in expandable section
-                        with st.expander("View raw data"):
-                            st.dataframe(region_attrition)
-                            
-                        # Add option to show employee counts
-                        if st.button("Show Employee Counts by Region", key="show_region_counts"):
-                            # Create dataframe with region counts
-                            region_counts = pd.DataFrame(index=["Count"])
-                            for region_col in top_region_columns:
-                                region_name = region_col.replace('Region_', '')
-                                region_counts[region_name] = [df[region_col].sum()]
-                            
-                            # Sort by count if desired
-                            if sort_by_rate:
-                                region_counts = region_counts[sorted_columns]
-                            
-                            # Show counts
-                            st.subheader("Employee Counts by Region")
-                            st.dataframe(region_counts)
-                            
-                            # Create bar chart of counts
-                            count_data = pd.DataFrame({
-                                'Region': region_counts.columns,
-                                'Employee Count': region_counts.iloc[0].values
-                            })
-                            
-                            fig_count = px.bar(
-                                count_data,
-                                x='Region',
-                                y='Employee Count',
-                                title="Employee Count by Region",
-                                color='Employee Count',
-                                color_continuous_scale=['#94a3b8', '#818cf8', '#4f46e5']  # Slate to indigo
-                            )
-                            
-                            # Update layout
-                            fig_count.update_layout(
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font=dict(family='Poppins', color=text_color),
-                                height=300,
-                                margin=dict(l=10, r=10, t=50, b=50)
-                            )
-                            
-                            st.plotly_chart(fig_count, use_container_width=True)
-                        else:
-                            st.info("Region data is not available in the current dataset.")
-            
+                        fig_region = px.bar(
+                            bar_data,
+                            x='Region',
+                            y='Attrition Rate',
+                            title="Attrition Rate by Region",
+                            color='Attrition Rate',
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
+                        )
+                        
+                        # Update layout
+                        fig_region.update_layout(
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(family='Poppins', color=text_color),
+                            xaxis_title="Region",
+                            yaxis_title="Attrition Rate",
+                            yaxis_tickformat='.1%',
+                            height=400,
+                            margin=dict(l=10, r=10, t=50, b=50)
+                        )
+                        
+                        # Add hover template
+                        fig_region.update_traces(
+                            hovertemplate="<b>%{x}</b><br>" +
+                                        "Attrition Rate: <b>%{y:.1%}</b><br>" +
+                                        "<extra></extra>"
+                        )
+                        
+                        st.plotly_chart(fig_region, use_container_width=True, key=chart_key)
+                    
+                    # Show raw data in expandable section
+                    with st.expander("View raw data"):
+                        st.dataframe(region_attrition)
+                        
+                    # Add option to show employee counts
+                    if st.button("Show Employee Counts by Region", key="show_region_counts"):
+                        # Create dataframe with region counts
+                        region_counts = pd.DataFrame(index=["Count"])
+                        for region_col in top_region_columns:
+                            region_name = region_col.replace('Region_', '')
+                            region_counts[region_name] = [df[region_col].sum()]
+                        
+                        # Sort by count if desired
+                        if sort_by_rate and 'sorted_columns' in locals() and len(sorted_columns) > 0:
+                            region_counts = region_counts[sorted_columns]
+                        
+                        # Show counts
+                        st.subheader("Employee Counts by Region")
+                        st.dataframe(region_counts)
+                        
+                        # Create bar chart of counts
+                        count_data = pd.DataFrame({
+                            'Region': region_counts.columns,
+                            'Employee Count': region_counts.iloc[0].values
+                        })
+                        
+                        fig_count = px.bar(
+                            count_data,
+                            x='Region',
+                            y='Employee Count',
+                            title="Employee Count by Region",
+                            color='Employee Count',
+                            color_continuous_scale=['#94a3b8', '#818cf8', '#4f46e5']  # Slate to indigo
+                        )
+                        
+                        # Update layout
+                        fig_count.update_layout(
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(family='Poppins', color=text_color),
+                            height=300,
+                            margin=dict(l=10, r=10, t=50, b=50)
+                        )
+                        
+                        st.plotly_chart(fig_count, use_container_width=True)
+                else:
+                    st.warning("No attrition data available for the selected regions.")
+            else:
+                st.info("Region data is not available in the current dataset.")
+    
     # Risk Factor Selection
     with st.container():
         st.markdown('<h2 class="sub-header">Select Risk Factor</h2>', unsafe_allow_html=True)
@@ -1049,11 +1071,11 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
         else:
             display_features = features
         
-    selected_factor = st.selectbox(
-        "Choose a risk factor to analyze",
-        options=display_features,
-        format_func=lambda x: x.replace('_', ' ').title()
-    )
+        selected_factor = st.selectbox(
+            "Choose a risk factor to analyze",
+            options=display_features,
+            format_func=lambda x: x.replace('_', ' ').title()
+        )
     
     # Risk Distribution by Selected Factor
     st.markdown('<h2 class="sub-header">Risk Distribution by {}</h2>'.format(selected_factor.replace('_', ' ').title()), unsafe_allow_html=True)
@@ -1119,7 +1141,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
     )
     
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Display filtered employees at risk - only show top ones for performance
     with st.container():
         st.markdown('<h2 class="sub-header">Filtered Employees at Risk</h2>', unsafe_allow_html=True)
@@ -1150,8 +1172,14 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
 
 def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_probabilities, explanations, features, model):
     """Display the employee analysis tab with detailed insights"""
-    # Display title
-    st.markdown('<h1 class="main-header">Employee Analysis</h1>', unsafe_allow_html=True)
+    # Display title with back button
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown('<h1 class="main-header">Employee Analysis</h1>', unsafe_allow_html=True)
+    with col2:
+        if st.button("← Back to Overview", key="back_to_overview"):
+            st.session_state.switch_to_employee_tab = False
+            st.experimental_rerun()
     
     # Employee Selection - handle None value for selected_employee
     with st.container():
@@ -1221,7 +1249,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
     with st.container():
         st.markdown(f"""
             <div class="stCard">
-                <h3>Employee Overview</h3>
+                <h3 style="color: #f1f5f9; font-family: 'Poppins', sans-serif; font-weight: 600; margin-bottom: 1rem; font-size: 1.25rem;">Employee Overview</h3>
                 <div style='display: flex; justify-content: space-between; align-items: center;'>
                     <div>
                         <p><strong>Employee ID:</strong> {employee_id}</p>
@@ -1231,7 +1259,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                         <p><strong>Engagement Score:</strong> {(raw_data['EngagementScore']*100):.1f}%</p>
                     </div>
                     <div style='text-align: right;'>
-                        <h4>Attrition Risk</h4>
+                        <h4 style="color: #f1f5f9; font-family: 'Poppins', sans-serif; font-weight: 600; margin-bottom: 0.5rem; font-size: 1.1rem;">Attrition Risk</h4>
                         <div style='color: {text_color}; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; background-color: {risk_color};'>
                             {risk_level} ({risk_score*100:.0f}%)
                         </div>
@@ -1272,7 +1300,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
         
         st.markdown(f"""
             <div class="stCard">
-                <h4>Role Risk Overview</h4>
+                <h4 style="color: #f1f5f9; font-family: 'Poppins', sans-serif; font-weight: 600; margin-bottom: 1rem; font-size: 1.1rem;">Role Risk Overview</h4>
                 <p><strong>Current Role:</strong> {employee_role}</p>
                 <p><strong>Role Changes:</strong> {role_changes:.1f} per year</p>
                 <p><strong>Role Attrition Rate:</strong> {role_risk:.1%}</p>
@@ -1302,7 +1330,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
         
         st.markdown(f"""
             <div class="stCard">
-                <h4>Business Unit Risk Overview</h4>
+                <h4 style="color: #f1f5f9; font-family: 'Poppins', sans-serif; font-weight: 600; margin-bottom: 1rem; font-size: 1.1rem;">Business Unit Risk Overview</h4>
                 <p><strong>Business Unit:</strong> {employee_bu}</p>
                 <p><strong>BU Size:</strong> {bu_size}</p>
                 <p><strong>BU Attrition Rate:</strong> {bu_risk:.1%}</p>
@@ -1331,14 +1359,14 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             
             st.markdown(f"""
                 <div class="stCard">
-                    <h4>Prediction Confidence</h4>
+                    <h4 style="color: #f1f5f9; font-family: 'Poppins', sans-serif; font-weight: 600; margin-bottom: 1rem; font-size: 1.1rem;">Prediction Confidence</h4>
                     <p><strong>Confidence Level:</strong> {confidence_level}</p>
                     <p><strong>Confidence Score:</strong> {confidence_score:.2f}</p>
                 </div>
             """, unsafe_allow_html=True)
             
             # Display key drivers - limit to top 5 for performance
-            st.markdown('<h4>Key Risk Drivers</h4>', unsafe_allow_html=True)
+            st.markdown('<h4 style="color: #f1f5f9; font-family: \'Poppins\', sans-serif; font-weight: 600; margin: 1.5rem 0 1rem 0; font-size: 1.1rem;">Key Risk Drivers</h4>', unsafe_allow_html=True)
             for _, row in impact_df.head(5).iterrows():
                 feature = row['Feature']
                 impact = row['Impact']
@@ -1354,22 +1382,29 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 else:
                     formatted_value = f"{value:.2f}"
                 
-                # Set color based on impact
+                # Set color based on impact - dark mode version
                 if impact > 0:
-                    color = '#dc2626'  # Red background
-                    bg_color = '#fee2e2'  # Light red background
+                    color = '#ef4444'  # Red for increasing risk
+                    bg_color = '#7f1d1d'  # Dark red background
+                    icon = '↑'  # Up arrow
                     impact_text = "increases"
                 else:
-                    color = '#059669'  # Green
-                    bg_color = '#d1fae5'  # Light green background
+                    color = '#10b981'  # Green for decreasing risk
+                    bg_color = '#064e3b'  # Dark green background
+                    icon = '↓'  # Down arrow
                     impact_text = "decreases"
                 
                 st.markdown(f"""
-                    <div style='background-color: {bg_color}; padding: 10px; margin: 5px 0; border-radius: 5px;'>
-                        <p><strong>{feature.replace('_', ' ').title()}:</strong> {formatted_value}</p>
-                        <p style='font-size: 0.9em; color: {color};'>
-                            {impact_text} attrition risk by {abs(impact):.3f}
-                        </p>
+                    <div style='background-color: {bg_color}; color: {text_color}; padding: 12px; margin: 8px 0; 
+                         border-radius: 8px; font-family: "Poppins", sans-serif; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);'>
+                        <div style='display: flex; justify-content: space-between;'>
+                            <span style='font-weight: 600; font-size: 1rem;'>{feature.replace('_', ' ').title()}</span>
+                            <span style='font-weight: 600; color: {color};'>{formatted_value}</span>
+                        </div>
+                        <div style='font-size: 0.9rem; margin-top: 5px; display: flex; align-items: center;'>
+                            <span style='color: {color}; font-weight: 600; font-size: 1.1rem; margin-right: 5px;'>{icon}</span>
+                            <span>{impact_text} attrition risk by <span style='font-weight: 600; color: {color};'>{abs(impact):.3f}</span></span>
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
     
@@ -1382,7 +1417,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             if employee_data['tenure'] < 1.0:
                 st.markdown(f"""
                     <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>⚠️ New Hire Flight Risk</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ New Hire Flight Risk</h5>
                         <p><strong>Alert Level:</strong> Critical</p>
                         <p><strong>Details:</strong> Employee is a high flight risk with less than 1 year tenure.</p>
                         <p><strong>Recommended Action:</strong> Immediate engagement plan and retention interview.</p>
@@ -1392,7 +1427,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             if employee_data['performance_score'] > 4.0:
                 st.markdown(f"""
                     <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>⚠️ High Performer Risk</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ High Performer Risk</h5>
                         <p><strong>Alert Level:</strong> Critical</p>
                         <p><strong>Details:</strong> High-performing employee at risk of leaving.</p>
                         <p><strong>Recommended Action:</strong> Review compensation, advancement opportunities, and recognition.</p>
@@ -1402,7 +1437,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             if employee_data['engagement_score'] < 0.5:
                 st.markdown(f"""
                     <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>⚠️ Low Engagement Alert</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ Low Engagement Alert</h5>
                         <p><strong>Alert Level:</strong> Critical</p>
                         <p><strong>Details:</strong> Employee has very low engagement score ({employee_data['engagement_score']:.2f}).</p>
                         <p><strong>Recommended Action:</strong> Deep dive on engagement factors and workplace satisfaction.</p>
@@ -1412,7 +1447,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             if employee_data['tenure'] > 5.0 and employee_data['performance_score'] > 3.5:
                 st.markdown(f"""
                     <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>⚠️ Career Plateau Risk</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ Career Plateau Risk</h5>
                         <p><strong>Alert Level:</strong> High</p>
                         <p><strong>Details:</strong> Long-tenured good performer at risk of stagnation.</p>
                         <p><strong>Recommended Action:</strong> Review career trajectory and development opportunities.</p>
@@ -1422,7 +1457,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             if employee_data['engagement_score'] < 0.6:
                 st.markdown(f"""
                     <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>⚠️ Declining Engagement Alert</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ Declining Engagement Alert</h5>
                         <p><strong>Alert Level:</strong> High</p>
                         <p><strong>Details:</strong> Employee shows below-average engagement levels.</p>
                         <p><strong>Recommended Action:</strong> Regular check-ins and engagement improvement plan.</p>
@@ -1470,7 +1505,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 
                 st.markdown(f"""
                     <div style='background-color: {bg_color}; color: {text_color}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>{rec['action']}</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">{rec['action']}</h5>
                         <p><strong>Priority:</strong> {rec['priority']}</p>
                         <p><strong>Timeline:</strong> {rec['timeline']}</p>
                         <p>{rec['details']}</p>
@@ -1481,7 +1516,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             if risk_level == "High Risk":
                 st.markdown(f"""
                     <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>Immediate Action Required</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">Immediate Action Required</h5>
                         <p><strong>Priority:</strong> Critical</p>
                         <p><strong>Timeline:</strong> Within 24 hours</p>
                         <p><strong>Recommended Actions:</strong></p>
@@ -1496,7 +1531,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             elif risk_level == "Medium Risk":
                 st.markdown(f"""
                     <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5>Proactive Intervention Needed</h5>
+                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">Proactive Intervention Needed</h5>
                         <p><strong>Priority:</strong> High</p>
                         <p><strong>Timeline:</strong> Within 1 week</p>
                         <p><strong>Recommended Actions:</strong></p>
@@ -1516,6 +1551,8 @@ def main():
         st.session_state.risk_threshold = 50  # Medium risk threshold
     if 'selected_employee' not in st.session_state:
         st.session_state.selected_employee = None
+    if 'switch_to_employee_tab' not in st.session_state:
+        st.session_state.switch_to_employee_tab = False
     
     # Use st.spinner to show loading state during heavy operations
     with st.spinner("Loading data and model..."):
