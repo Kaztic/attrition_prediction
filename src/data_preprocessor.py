@@ -171,10 +171,10 @@ def preprocess_employee_data(filepath = None, dataframe=None):
         )
         
         # Add back BU and Region columns if they exist
-        if bu_column is not None:
-            df_processed['BU'] = bu_column  # Rename Business_Unit to BU for consistency
-        if region_column is not None:
-            df_processed['Region'] = region_column
+        # if bu_column is not None:
+        #     df_processed['BU'] = bu_column  # Rename Business_Unit to BU for consistency
+        # if region_column is not None:
+        #     df_processed['Region'] = region_column
         
         # Logging preprocessing details
         logger.info("Preprocessing Complete")
