@@ -10,237 +10,235 @@ import matplotlib.pyplot as plt
 import os
 import sys
 import shap
+from datetime import datetime
 
 # Add the src directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.model import load_model, predict_attrition
+from src.model import AttritionPredictionModel
 from src.recommendation_engine import generate_recommendations, identify_risk_clusters
 
 # Set page configuration
 st.set_page_config(
-    page_title="Attrition Prediction Dashboard",
-    page_icon="🔍",
+    page_title="Employee Attrition Analytics",
+    page_icon="👥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS with modern design
 st.markdown("""
 <style>
     /* Modern Typography */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
     
     /* Main Layout */
     .main {
-        background-color: #ffffff;
+        background-color: #f8fafc;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
     }
     
     /* Headers */
     .main-header {
-        font-family: 'Inter', sans-serif;
-        font-size: 2.8rem;
+        font-family: 'Poppins', sans-serif;
+        font-size: 2.5rem;
         font-weight: 700;
-        color: #2c3e50;
+        color: #1e293b;
         margin-bottom: 1rem;
         letter-spacing: -0.02em;
     }
     
     .sub-header {
-        font-family: 'Inter', sans-serif;
-        font-size: 1.8rem;
+        font-family: 'Poppins', sans-serif;
+        font-size: 1.5rem;
         font-weight: 600;
-        color: #34495e;
+        color: #334155;
         margin-bottom: 1.5rem;
         letter-spacing: -0.01em;
     }
     
-    /* Risk Indicators */
-    .risk-high {
-        color: #e74c3c;
-        font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        background-color: #fde8e8;
-    }
-    
-    .risk-medium {
-        color: #f39c12;
-        font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        background-color: #fff3e0;
-    }
-    
-    .risk-low {
-        color: #27ae60;
-        font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        background-color: #e8f5e9;
+    /* Cards */
+    .stCard {
+        background-color: white;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1.5rem;
+        max-width: 100%;
     }
     
     /* Metric Cards */
     .metric-card {
-        background-color: #f8fafc;
-        border-radius: 0.75rem;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 1rem;
         padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         border: 1px solid #e2e8f0;
+        transition: transform 0.2s;
+        max-width: 100%;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
     }
     
     .metric-value {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Poppins', sans-serif;
         font-size: 2rem;
         font-weight: 700;
-        color: #2c3e50;
+        color: #1e293b;
         margin-bottom: 0.5rem;
     }
     
     .metric-label {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Poppins', sans-serif;
         font-size: 0.875rem;
         color: #64748b;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
     
-    /* Insight Boxes */
-    .insight-box {
-        background-color: #f8fafc;
-        border-radius: 0.75rem;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e2e8f0;
-    }
-    
-    .insight-box h4 {
-        font-family: 'Inter', sans-serif;
-        font-size: 1.125rem;
+    /* Risk Indicators */
+    .risk-high {
+        color: #dc2626;
         font-weight: 600;
-        color: #2c3e50;
-        margin-bottom: 0.75rem;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        background-color: #fee2e2;
     }
     
-    .insight-box p {
-        font-family: 'Inter', sans-serif;
-        font-size: 0.875rem;
-        color: #64748b;
-        line-height: 1.5;
+    .risk-medium {
+        color: #f59e0b;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        background-color: #fef3c7;
+    }
+    
+    .risk-low {
+        color: #059669;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        background-color: #d1fae5;
     }
     
     /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
         gap: 1rem;
+        background-color: transparent;
     }
     
     .stTabs [data-baseweb="tab"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Poppins', sans-serif;
         font-weight: 500;
         color: #64748b;
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
         transition: all 0.2s;
-        background-color: #f8fafc;
+        background-color: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
     
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #2c3e50;
+        background-color: #1e293b;
         color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Buttons */
+    .stButton button {
+        font-family: 'Poppins', sans-serif;
+        font-weight: 500;
+        background-color: #1e293b;
+        color: white;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1.5rem;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .stButton button:hover {
+        background-color: #334155;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Select Boxes */
+    .stSelectbox select {
+        background-color: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        color: #1e293b;
+        padding: 0.75rem;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    /* Sliders */
+    .stSlider > div > div > div {
+        background-color: #1e293b;
     }
     
     /* Data Tables */
     .dataframe {
-        font-family: 'Inter', sans-serif;
-        border-radius: 0.75rem;
+        font-family: 'Poppins', sans-serif;
+        border-radius: 1rem;
         overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        background-color: #ffffff;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        background-color: white;
+        max-width: 100%;
     }
     
     .dataframe thead th {
         background-color: #f8fafc;
         font-weight: 600;
-        color: #2c3e50;
+        color: #1e293b;
         padding: 1rem;
     }
     
     .dataframe tbody td {
         padding: 1rem;
         color: #64748b;
-        background-color: #ffffff;
+        background-color: white;
     }
     
     .dataframe tbody tr:nth-child(even) {
         background-color: #f8fafc;
     }
     
-    /* Charts */
-    .js-plotly-plot {
-        border-radius: 0.75rem !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
-        background-color: #ffffff !important;
-    }
-    
     /* Sidebar */
     .css-1d391kg {
-        background-color: #f8fafc;
+        background-color: white;
         border-right: 1px solid #e2e8f0;
     }
     
     .sidebar .sidebar-content {
-        padding: 1.5rem;
+        padding: 2rem;
     }
     
-    /* Buttons */
-    .stButton button {
-        font-family: 'Inter', sans-serif;
-        font-weight: 500;
-        background-color: #2c3e50;
-        color: white;
-        border-radius: 0.5rem;
-        padding: 0.5rem 1rem;
-        transition: all 0.2s;
-    }
-    
-    .stButton button:hover {
-        background-color: #34495e;
-    }
-    
-    /* Select Boxes */
-    .stSelectbox select {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        color: #2c3e50;
-        padding: 0.5rem;
-    }
-    
-    /* Sliders */
-    .stSlider > div > div > div {
-        background-color: #2c3e50;
-    }
-    
-    /* Expander */
-    .streamlit-expanderHeader {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        color: #2c3e50;
-        font-family: 'Inter', sans-serif;
-        font-weight: 600;
+    /* Charts */
+    .js-plotly-plot {
+        border-radius: 1rem !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        background-color: white !important;
+        max-width: 100% !important;
     }
     
     /* Responsive Design */
     @media (max-width: 768px) {
+        .main {
+            padding: 0 0.5rem;
+        }
+        
         .main-header {
             font-size: 2rem;
         }
         
         .sub-header {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
         }
         
         .metric-card {
@@ -250,577 +248,583 @@ st.markdown("""
         .metric-value {
             font-size: 1.5rem;
         }
-        
-        .stTabs [data-baseweb="tab-list"] {
-            flex-wrap: wrap;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            flex: 1 1 100%;
-            margin-bottom: 0.5rem;
-        }
-        
-        .dataframe {
-            overflow-x: auto;
-        }
-    }
-    
-    /* Container Responsiveness */
-    .stApp {
-        max-width: 100%;
-        padding: 1rem;
-        background-color: #ffffff;
-    }
-    
-    /* Chart Responsiveness */
-    .js-plotly-plot {
-        width: 100% !important;
-        height: auto !important;
-    }
-    
-    /* Table Responsiveness */
-    .dataframe-wrapper {
-        overflow-x: auto;
-        margin: 1rem 0;
-    }
-    
-    /* Sidebar Responsiveness */
-    @media (max-width: 768px) {
-        .css-1d391kg {
-            width: 100% !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 1000;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease-in-out;
-            background-color: #f8fafc;
-        }
-        
-        .css-1d391kg[data-testid="stSidebar"][aria-expanded="true"] {
-            transform: translateX(0);
-        }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Helper functions
 @st.cache_data
 def load_data():
-    """Load the processed employee data"""
+    """Load and cache the employee data"""
     try:
-        df = pd.read_csv("data/processed_employee_data.csv")
+        df = pd.read_csv('data/processed_employee_data.csv')
         return df
-    except FileNotFoundError:
-        st.error("Processed employee data not found. Please run the data processing step first.")
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
         return None
 
 @st.cache_resource
 def load_prediction_resources():
-    """Load the trained model and related resources"""
+    """Load and cache the model and explainer"""
     try:
-        model, explainer, features = load_model()
-        return model, explainer, features
-    except FileNotFoundError:
-        st.error("Model files not found. Please train the model first.")
-        return None, None, None
+        model = AttritionPredictionModel.load_model()
+        explainer = shap.TreeExplainer(model)
+        return model, explainer
+    except Exception as e:
+        st.error(f"Error loading prediction resources: {str(e)}")
+        return None, None
 
 def format_risk_score(score):
-    """Format risk score with appropriate color coding"""
-    if score >= 0.7:
-        return f'<span class="risk-high">{score:.2f}</span>'
-    elif score >= 0.4:
-        return f'<span class="risk-medium">{score:.2f}</span>'
+    """Format the risk score with appropriate styling"""
+    # Convert to percentage (0-100)
+    percentage = score * 100
+    
+    if percentage >= 55:
+        return f'<span class="risk-high">High Risk ({percentage:.0f}%)</span>'
+    elif percentage >= 40:
+        return f'<span class="risk-medium">Medium Risk ({percentage:.0f}%)</span>'
     else:
-        return f'<span class="risk-low">{score:.2f}</span>'
+        return f'<span class="risk-low">Low Risk ({percentage:.0f}%)</span>'
 
 def predict_all_employees(df, model, explainer, features):
-    """Make predictions for all employees"""
-    # Check if required columns exist
-    if not all(feature in df.columns for feature in features):
-        missing = [f for f in features if f not in df.columns]
-        st.error(f"Missing features in data: {missing}")
-        return None, None
-    
-    # Get features in the right order
-    X = df[features]
-    
-    # Make predictions
-    probabilities = model.predict_proba(X)[:, 1]
-    
-    # Generate SHAP explanations (can be slow for large datasets)
-    with st.spinner("Generating explanations..."):
+    """Generate predictions for all employees"""
+    try:
+        X = df[features]
+        probabilities = model.predict_proba(X)[:, 1]
         explanations = explainer.shap_values(X)
-    
-    return probabilities, explanations
+        if isinstance(explanations, list):
+            explanations = explanations[0]  # For binary classification, get first class
+        return probabilities, explanations
+    except Exception as e:
+        st.error(f"Error generating predictions: {str(e)}")
+        return None, None
 
-# Main app
-def main():
-    """Main function to run the dashboard"""
-    st.markdown('<p class="main-header">AI-Powered Attrition Prediction</p>', unsafe_allow_html=True)
+def display_overview_tab(df, transformed_df, probabilities, features, explanations):
+    """Display the overview tab with key metrics and visualizations"""
+    st.markdown('<h1 class="main-header">Employee Attrition Analytics</h1>', unsafe_allow_html=True)
     
-    # Load data
-    df = load_data()
-    if df is None:
-        return
+    # Employee Search
+    st.markdown('<h2 class="sub-header">Search Employee</h2>', unsafe_allow_html=True)
+    search_col1, search_col2 = st.columns([3, 1])
+    with search_col1:
+        search_id = st.text_input("Enter Employee ID", placeholder="e.g., EID770487")
+        if search_id and not search_id.startswith("EID"):
+            search_id = f"EID{search_id}"
+    with search_col2:
+        if st.button("Search", key="search_btn"):
+            if search_id in df.index:
+                st.session_state.selected_employee = search_id
+                st.session_state.active_tab = 1  # Switch to Employee Analysis tab
+                st.experimental_rerun()
+            else:
+                st.error("Employee ID not found")
     
-    # Load model and make predictions
-    model, explainer, features = load_prediction_resources()  # Make sure features is loaded here
-    if model is None:
-        return
+    # Initialize risk filter in session state if not exists
+    if 'risk_filter' not in st.session_state:
+        st.session_state.risk_filter = 'all'
     
-    # Make predictions
-    predictions, probabilities, explanations = predict_attrition(df, model, explainer, features)
-    
-    # Create tabs
-    tab1, tab2, tab3 = st.tabs(["Overview", "Employee Analysis", "Recommendations"])
-    
-    with tab1:
-        display_overview_tab(df, probabilities, features, explanations)
-    
-    with tab2:
-        display_employee_analysis_tab(df, probabilities, explanations, features, explainer)
-    
-    with tab3:
-        display_recommendations_tab(df, probabilities, explanations, features)
-
-def display_overview_tab(df, probabilities, features, explanations):
-    """Display overview dashboard with key metrics and visualizations"""
-    st.markdown('<p class="sub-header">Attrition Risk Overview</p>', unsafe_allow_html=True)
-    
-    # Calculate risk categories
-    high_risk = (probabilities >= 0.7).sum()
-    medium_risk = ((probabilities >= 0.4) & (probabilities < 0.7)).sum()
-    low_risk = (probabilities < 0.4).sum()
-    
-    # Summary metrics with enhanced styling
+    # Key Metrics with clickable cards
     col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
+        if st.button("All Employees", key="all_btn"):
+            st.session_state.risk_filter = 'all'
+            st.experimental_rerun()
         st.markdown("""
-            <div class="metric-card">
+            <div class="metric-card" style="cursor: pointer;">
                 <div class="metric-value">{}</div>
-                <div class="metric-label">Total Employees</div>
+                <div class="metric-label">All Employees</div>
             </div>
         """.format(len(df)), unsafe_allow_html=True)
     
     with col2:
+        high_risk = (probabilities >= 0.55).sum()
+        if st.button("High Risk", key="high_risk_btn"):
+            st.session_state.risk_filter = 'high'
+            st.experimental_rerun()
         st.markdown("""
-            <div class="metric-card">
+            <div class="metric-card" style="cursor: pointer;">
                 <div class="metric-value">{}</div>
                 <div class="metric-label">High Risk Employees</div>
-                <div style="color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem;">{:.1f}% of workforce</div>
             </div>
-        """.format(high_risk, high_risk/len(df)*100), unsafe_allow_html=True)
+        """.format(high_risk), unsafe_allow_html=True)
     
     with col3:
+        medium_risk = ((probabilities >= 0.40) & (probabilities < 0.55)).sum()
+        if st.button("Medium Risk", key="medium_risk_btn"):
+            st.session_state.risk_filter = 'medium'
+            st.experimental_rerun()
         st.markdown("""
-            <div class="metric-card">
+            <div class="metric-card" style="cursor: pointer;">
                 <div class="metric-value">{}</div>
                 <div class="metric-label">Medium Risk Employees</div>
             </div>
         """.format(medium_risk), unsafe_allow_html=True)
     
     with col4:
+        low_risk = (probabilities < 0.40).sum()
+        if st.button("Low Risk", key="low_risk_btn"):
+            st.session_state.risk_filter = 'low'
+            st.experimental_rerun()
         st.markdown("""
-            <div class="metric-card">
+            <div class="metric-card" style="cursor: pointer;">
                 <div class="metric-value">{}</div>
                 <div class="metric-label">Low Risk Employees</div>
             </div>
         """.format(low_risk), unsafe_allow_html=True)
     
-    # Add predictions to dataframe for visualizations
-    df_with_pred = df.copy()
-    df_with_pred['attrition_risk'] = probabilities
+    # Filter data based on selected risk level
+    if st.session_state.risk_filter == 'high':
+        filtered_mask = probabilities >= 0.55
+    elif st.session_state.risk_filter == 'medium':
+        filtered_mask = (probabilities >= 0.40) & (probabilities < 0.55)
+    elif st.session_state.risk_filter == 'low':
+        filtered_mask = probabilities < 0.40
+    else:  # 'all'
+        filtered_mask = np.ones(len(df), dtype=bool)
     
-    # Risk distribution
-    st.markdown('<p class="sub-header">Risk Distribution</p>', unsafe_allow_html=True)
+    filtered_df = df[filtered_mask]
+    filtered_probabilities = probabilities[filtered_mask]
+    filtered_transformed_df = transformed_df[filtered_mask]
     
-    # Create two columns with responsive widths
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        # Donut chart for risk categories with improved styling
-        risk_categories = {
-            'High Risk (≥0.7)': high_risk,
-            'Medium Risk (0.4-0.69)': medium_risk,
-            'Low Risk (<0.4)': low_risk
-        }
-        
-        fig = go.Figure(data=[go.Pie(
-            labels=list(risk_categories.keys()),
-            values=list(risk_categories.values()),
-            hole=0.6,
-            marker_colors=['#ef4444', '#f97316', '#22c55e'],
-            textinfo='label+percent',
-            textposition='outside'
-        )])
-        
-        fig.update_layout(
-            height=400,
-            margin=dict(l=20, r=20, t=20, b=20),
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Risk distribution by department with improved styling
-        dept_risk = df_with_pred.groupby('department')['attrition_risk'].agg(['mean', 'count']).reset_index()
-        dept_risk.columns = ['Department', 'Average Risk', 'Employee Count']
-        
-        fig = px.bar(
-            dept_risk, 
-            x='Department', 
-            y='Average Risk',
-            color='Average Risk',
-            color_continuous_scale='RdYlGn_r',
-            hover_data=['Employee Count'],
-            height=400
-        )
-        
-        fig.update_layout(
-            yaxis_range=[0, 1],
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            xaxis_title="Department",
-            yaxis_title="Average Risk Score",
-            hovermode='x unified'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Team Risk Heatmap with improved styling
-    st.markdown('<p class="sub-header">Team Risk Heatmap</p>', unsafe_allow_html=True)
-    
-    # Calculate team-level metrics
-    team_risk = df_with_pred.groupby(['department', 'team'])['attrition_risk'].agg(['mean', 'count']).reset_index()
-    team_risk.columns = ['Department', 'Team', 'Average Risk', 'Employee Count']
-    
-    fig = px.treemap(
-        team_risk,
-        path=[px.Constant("All Departments"), 'Department', 'Team'],
-        values='Employee Count',
-        color='Average Risk',
-        color_continuous_scale='RdYlGn_r',
-        hover_data=['Employee Count', 'Average Risk']
+    # Risk Factor Selection
+    st.markdown('<h2 class="sub-header">Select Risk Factor</h2>', unsafe_allow_html=True)
+    selected_factor = st.selectbox(
+        "Choose a risk factor to analyze",
+        options=features,
+        format_func=lambda x: x.replace('_', ' ').title()
     )
     
+    # Risk Distribution by Selected Factor
+    st.markdown('<h2 class="sub-header">Risk Distribution by {}</h2>'.format(selected_factor.replace('_', ' ').title()), unsafe_allow_html=True)
+    
+    # Create a DataFrame with the selected factor and risk scores
+    factor_df = pd.DataFrame({
+        'Factor': filtered_transformed_df[selected_factor],
+        'Risk Score': filtered_probabilities * 100  # Convert to percentage
+    })
+    
+    # Create a scatter plot
+    fig = px.scatter(
+        factor_df,
+        x='Factor',
+        y='Risk Score',
+        title=f"Risk Scores vs {selected_factor.replace('_', ' ').title()}",
+        labels={'Factor': selected_factor.replace('_', ' ').title(), 'Risk Score': 'Attrition Risk (%)'},
+        color='Risk Score',
+        color_continuous_scale=['#059669', '#f59e0b', '#dc2626']
+    )
     fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=20, r=20, t=20, b=20)
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(family='Poppins')
     )
     st.plotly_chart(fig, use_container_width=True)
     
-    # Show risk factors across organization with improved styling
-    st.markdown('<p class="sub-header">Top Risk Factors</p>', unsafe_allow_html=True)
+    # Display filtered employees at risk based on the selected factor
+    st.markdown('<h2 class="sub-header">Filtered Employees at Risk</h2>', unsafe_allow_html=True)
+    risk_df = pd.DataFrame({
+        'Employee ID': filtered_df.index,
+        'Risk Score': filtered_probabilities * 100,  # Convert to percentage
+        selected_factor: filtered_transformed_df[selected_factor]
+    }).sort_values('Risk Score', ascending=False)
     
-    if explanations is not None:
-        # Calculate feature importance
-        mean_importance = np.abs(explanations).mean(axis=0)
-        if len(mean_importance) != len(features):
-            st.warning(f"Feature mismatch: {len(features)} features vs {len(mean_importance)} importance values")
-            return
-            
-        feature_imp = pd.DataFrame({
-            'Feature': features,
-            'Importance': mean_importance
-        }).sort_values('Importance', ascending=False).head(10)
-        
-        # Format feature names for better readability
-        feature_imp['Feature'] = feature_imp['Feature'].apply(
-            lambda x: x.replace('_', ' ').title()
-        )
-        
-        fig = px.bar(
-            feature_imp,
-            x='Importance',
-            y='Feature',
-            orientation='h',
-            color='Importance',
-            color_continuous_scale='Reds'
-        )
-        
-        fig.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            xaxis_title="Importance Score",
-            yaxis_title="Feature",
-            height=400,
-            margin=dict(l=20, r=20, t=20, b=20)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("SHAP explanations not available for feature importance visualization")
+    # Add clickable rows
+    for idx, row in risk_df.iterrows():
+        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+        with col1:
+            st.write(f"Employee ID: {row['Employee ID']}")
+        with col2:
+            st.write(f"Risk Score: {row['Risk Score']:.0f}%")
+        with col3:
+            st.write(f"{selected_factor.replace('_', ' ').title()}: {row[selected_factor]:.2f}")
+        with col4:
+            if st.button("View Details", key=f"view_{row['Employee ID']}"):
+                st.session_state.selected_employee = row['Employee ID']
+                st.session_state.active_tab = 1  # Set to Employee Analysis tab index
+                st.experimental_rerun()
 
-def display_employee_analysis_tab(df, probabilities, explanations, features, explainer):
-    """Display employee risk analysis with filtering and detailed insights"""
-    st.markdown('<p class="sub-header">Employee Risk Analysis</p>', unsafe_allow_html=True)
+def display_employee_analysis_tab(df, transformed_df, probabilities, explanations, features, model):
+    """Display the employee analysis tab with detailed insights"""
+    # Add back button at the top
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        if st.button("← Back to Overview"):
+            st.session_state.active_tab = 0
+            st.experimental_rerun()
     
-    # Add predictions to dataframe
-    df_with_pred = df.copy()
-    df_with_pred['attrition_risk'] = probabilities
+    st.markdown('<h1 class="main-header">Employee Analysis</h1>', unsafe_allow_html=True)
     
-    # Filters in sidebar with enhanced styling
-    st.sidebar.markdown("""
-        <div style="padding: 1rem; background-color: white; border-radius: 0.75rem; margin-bottom: 1rem;">
-            <h3 style="font-family: 'Inter', sans-serif; font-size: 1.25rem; color: #1e293b; margin-bottom: 1rem;">Filters</h3>
+    # Employee Selection
+    st.markdown('<h2 class="sub-header">Select Employee</h2>', unsafe_allow_html=True)
+    # Use session state to maintain selected employee
+    selected_employee = st.session_state.get('selected_employee', df.index[0])
+    employee_id = st.selectbox(
+        "Choose an employee to analyze",
+        options=df.index,
+        index=df.index.get_loc(selected_employee),
+        format_func=lambda x: f"Employee ID: {x}"
+    )
+    
+    # Get the index position of the selected employee
+    employee_idx = df.index.get_loc(employee_id)
+    
+    # Employee Details Card
+    employee_data = transformed_df.iloc[employee_idx]
+    risk_score = probabilities[employee_idx]
+    
+    # Get raw data for display
+    raw_data = df.iloc[employee_idx]
+    
+    st.markdown(f"""
+        <div class="stCard">
+            <h3>Employee Report</h3>
+            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                <div>
+                    <p><strong>Employee ID:</strong> {employee_id}</p>
+                    <p><strong>Tenure:</strong> {raw_data['Tenure']} years</p>
+                    <p><strong>Performance Score:</strong> {raw_data['PastPerformance']:.1f}/2.0</p>
+                    <p><strong>Training Hours:</strong> {raw_data['TrainingParticipation']:.1f}</p>
+                    <p><strong>Role Changes:</strong> {raw_data['RoleChanges']:.1f}</p>
+                    <p><strong>Engagement Score:</strong> {(raw_data['EventActivity']/5*100):.1f}%</p>
+                </div>
+                <div style='text-align: right;'>
+                    <h4>Attrition Risk</h4>
+                    {format_risk_score(risk_score)}
+                    <p style='font-size: 0.8em; color: #666;'>Based on multiple factors including performance, engagement, and career growth</p>
+                </div>
+            </div>
+        </div>
     """, unsafe_allow_html=True)
     
-    # Department filter
-    all_depts = ["All Departments"] + sorted(df['department'].unique().tolist())
-    selected_dept = st.sidebar.selectbox("Department", all_depts)
-    
-    # Team filter (dependent on department)
-    if selected_dept != "All Departments":
-        dept_teams = ["All Teams"] + sorted(df[df['department'] == selected_dept]['team'].unique().tolist())
-        selected_team = st.sidebar.selectbox("Team", dept_teams)
-    else:
-        selected_team = "All Teams"
-    
-    # Risk level filter
-    risk_threshold = st.sidebar.slider("Minimum Risk Score", 0.0, 1.0, 0.5, 0.05)
-    
-    # Apply filters
-    filtered_df = df_with_pred.copy()
-    
-    if selected_dept != "All Departments":
-        filtered_df = filtered_df[filtered_df['department'] == selected_dept]
+    # Feature Impact Analysis
+    st.markdown('<h2 class="sub-header">Feature Impact Analysis</h2>', unsafe_allow_html=True)
+    if explanations is not None:
+        employee_explanation = explanations[employee_idx]
         
-    if selected_team != "All Teams":
-        filtered_df = filtered_df[filtered_df['team'] == selected_team]
+        # Calculate feature importance based on absolute SHAP values
+        impact_df = pd.DataFrame({
+            'Feature': features,
+            'Impact': employee_explanation,
+            'Absolute Impact': np.abs(employee_explanation)
+        }).sort_values('Absolute Impact', ascending=False)
         
-    filtered_df = filtered_df[filtered_df['attrition_risk'] >= risk_threshold]
-    
-    # Sort by risk (highest first)
-    filtered_df = filtered_df.sort_values('attrition_risk', ascending=False)
-    
-    # Show filter results
-    if len(filtered_df) > 0:
-        st.write(f"Showing {len(filtered_df)} employees with risk score ≥ {risk_threshold:.2f}")
+        # Create separate dataframes for positive and negative impacts
+        positive_impact = impact_df[impact_df['Impact'] > 0].head(5)
+        negative_impact = impact_df[impact_df['Impact'] < 0].head(5)
         
-        # Format the risk score column with colors
-        filtered_df['formatted_risk'] = filtered_df['attrition_risk'].apply(
-            lambda x: format_risk_score(x)
-        )
+        # Create two columns for the plots
+        col1, col2 = st.columns(2)
         
-        # Select columns to display
-        display_cols = ['employee_id', 'department', 'team', 'manager', 'tenure', 
-                       'performance_score', 'formatted_risk']
+        with col1:
+            # Plot positive impacts
+            fig_positive = px.bar(
+                positive_impact,
+                x='Impact',
+                y='Feature',
+                orientation='h',
+                title="Top 5 Risk Factors",
+                color='Impact',
+                color_continuous_scale=['#dc2626', '#f59e0b'],
+                labels={'Impact': 'Risk Contribution', 'Feature': 'Factor'}
+            )
+            fig_positive.update_layout(
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(family='Poppins'),
+                showlegend=False
+            )
+            st.plotly_chart(fig_positive, use_container_width=True)
         
-        # Convert to HTML to support the formatted risk column
-        html_table = filtered_df[display_cols].to_html(
-            escape=False, 
-            index=False,
-            columns=['employee_id', 'department', 'team', 'tenure', 'performance_score', 'formatted_risk'],
-            formatters={'formatted_risk': lambda x: x}
-        )
-        st.write(html_table, unsafe_allow_html=True)
+        with col2:
+            # Plot negative impacts
+            fig_negative = px.bar(
+                negative_impact,
+                x='Impact',
+                y='Feature',
+                orientation='h',
+                title="Top 5 Protective Factors",
+                color='Impact',
+                color_continuous_scale=['#059669', '#10b981'],
+                labels={'Impact': 'Protection Contribution', 'Feature': 'Factor'}
+            )
+            fig_negative.update_layout(
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(family='Poppins'),
+                showlegend=False
+            )
+            st.plotly_chart(fig_negative, use_container_width=True)
         
-        # Employee selection for detailed analysis
-        st.subheader("Employee Deep Dive")
-        selected_employee_id = st.selectbox(
-            "Select an employee to analyze",
-            options=filtered_df['employee_id'].tolist(),
-            format_func=lambda x: f"Employee #{x}"
-        )
+        # Add feature value comparison
+        st.markdown('<h3>Feature Value Analysis</h3>', unsafe_allow_html=True)
+        feature_values = pd.DataFrame({
+            'Feature': features,
+            'Value': [employee_data[feature] for feature in features],
+            'Impact': employee_explanation,
+            'Absolute Impact': np.abs(employee_explanation)
+        }).sort_values('Absolute Impact', ascending=False).head(10)
         
-        if selected_employee_id:
-            employee_idx = df_with_pred[df_with_pred['employee_id'] == selected_employee_id].index[0]
-            employee_data = df_with_pred.loc[employee_idx]
+        # Calculate relative importance
+        max_impact = feature_values['Absolute Impact'].max()
+        
+        # Define value ranges for each feature
+        value_ranges = {
+            'performance_score': 'Range: 0.0-2.0',
+            'team_attrition_rate': 'Range: 0-100%',
+            'dept_attrition_rate': 'Range: 0-100%',
+            'leave_days_taken': 'Range: 0-30 days',
+            'engagement_score': 'Range: 0-100%',
+            'peer_attrition_last60d': 'Range: 0-100%',
+            'skill_relevance': 'Range: 0-1.0',
+            'training_hours': 'Range: 0-100 hours',
+            'manager_team_size': 'Range: 1-50'
+        }
+        
+        # Format values based on feature type
+        for idx, row in feature_values.iterrows():
+            feature = row['Feature']
+            value = row['Value']
+            impact = row['Impact']
+            relative_importance = (row['Absolute Impact'] / max_impact) * 100
             
-            # Display employee details and risk factors
-            col1, col2 = st.columns([1, 2])
+            # Format value based on feature type
+            if 'score' in feature and 'performance' in feature:
+                formatted_value = f"{value:.1f}/2.0"
+            elif 'score' in feature or 'rate' in feature:
+                formatted_value = f"{value:.1%}"
+            elif 'hours' in feature or 'years' in feature:
+                formatted_value = f"{value:.1f}"
+            else:
+                formatted_value = f"{value:.2f}"
             
-            with col1:
-                st.write("### Employee Details")
-                st.write(f"**ID:** {selected_employee_id}")
-                st.write(f"**Department:** {employee_data['department']}")
-                st.write(f"**Team:** {employee_data['team']}")
-                st.write(f"**Manager:** {employee_data['manager']}")
-                st.write(f"**Tenure:** {employee_data['tenure']} years")
-                st.write(f"**Performance:** {employee_data['performance_score']}/5")
-                st.write(f"**Last Promotion:** {employee_data['last_promotion']} years ago")
-                
-                # Risk score with color coding
-                risk_score = employee_data['attrition_risk']
-                risk_html = format_risk_score(risk_score)
-                st.write(f"**Risk Score:** {risk_html}", unsafe_allow_html=True)
+            # Determine if value is concerning and set appropriate color
+            is_high_risk = False
+            card_color = '#f5f5f5'  # Default light gray
             
-            with col2:
-                st.write("### Risk Factors")
-                
-                if explanations is not None:
-                    # Get SHAP values for the selected employee
-                    employee_shap_values = explanations[employee_idx]
-                    
-                    # Create temp figure for SHAP plot
-                    fig, ax = plt.subplots(figsize=(10, 5))
-                    shap.force_plot(
-                        base_value=explainer.expected_value[0],  # Take first class expected value
-                        shap_values=employee_shap_values,
-                        features=employee_data[features],
-                        feature_names=features,
-                        matplotlib=True,
-                        show=False,
-                        text_rotation=45
-                    )
-                    
-                    # Display the figure
-                    st.pyplot(fig)
-                    
-                    # Extract top risk factors
-                    feature_importance = list(zip(features, employee_shap_values))
-                    sorted_importance = sorted(feature_importance, key=lambda x: -x[1])  # Sort by positive impact on risk
-                    
-                    # Display top risk factors as a table
-                    risk_factors_df = pd.DataFrame(sorted_importance, columns=['Factor', 'Impact'])
-                    risk_factors_df = risk_factors_df[risk_factors_df['Impact'] > 0].head(5)  # Only positive factors
-                    
-                    if not risk_factors_df.empty:
-                        st.write("#### Top Risk Drivers")
-                        
-                        # Format factor names for readability
-                        risk_factors_df['Factor'] = risk_factors_df['Factor'].apply(
-                            lambda x: x.replace('_', ' ').title()
-                        )
-                        
-                        # Display as a bar chart
-                        fig = px.bar(
-                            risk_factors_df,
-                            x='Impact',
-                            y='Factor',
-                            orientation='h',
-                            color='Impact',
-                            color_continuous_scale='Reds'
-                        )
-                        fig.update_layout(height=300)
-                        st.plotly_chart(fig, use_container_width=True)
+            if 'performance_score' in feature:
+                if value < 1.0:
+                    is_high_risk = True
+                    card_color = '#ffebee'  # Light red
+                elif value < 1.2:
+                    card_color = '#fff3e0'  # Light orange
                 else:
-                    st.warning("SHAP explanations not available for this employee.")
-    else:
-        st.write("No employees match the selected filters.")
-
-def display_recommendations_tab(df, probabilities, explanations, features):
-    """Display recommendations for retention strategies"""
-    st.markdown('<p class="sub-header">Retention Recommendations</p>', unsafe_allow_html=True)
-    
-    # Add predictions to dataframe
-    df_with_pred = df.copy()
-    df_with_pred['attrition_risk'] = probabilities
-    
-    # Generate risk clusters
-    with st.spinner("Identifying risk patterns..."):
-        risk_clusters = identify_risk_clusters(df_with_pred, probabilities, explanations, features)
-    
-    # Display risk clusters with enhanced styling
-    st.subheader("Risk Clusters")
-    
-    if risk_clusters:
-        for i, cluster in enumerate(risk_clusters):
+                    card_color = '#e8f5e9'  # Light green
+            elif 'rate' in feature:
+                if value > 0.2:
+                    is_high_risk = True
+                    card_color = '#ffebee'  # Light red
+                elif value > 0.1:
+                    card_color = '#fff3e0'  # Light orange
+                else:
+                    card_color = '#e8f5e9'  # Light green
+            elif 'hours' in feature:
+                if value < 20:
+                    is_high_risk = True
+                    card_color = '#ffebee'  # Light red
+                elif value < 30:
+                    card_color = '#fff3e0'  # Light orange
+                else:
+                    card_color = '#e8f5e9'  # Light green
+            elif 'engagement_score' in feature:
+                if value < 0.4:
+                    is_high_risk = True
+                    card_color = '#ffebee'  # Light red
+                elif value < 0.6:
+                    card_color = '#fff3e0'  # Light orange
+                else:
+                    card_color = '#e8f5e9'  # Light green
+            
+            # Format impact description with more precise language
+            if relative_importance > 80:
+                impact_description = "Significantly "
+            elif relative_importance > 50:
+                impact_description = "Moderately "
+            else:
+                impact_description = "Slightly "
+            
+            # Fix contradictions by checking both value and impact
+            if ('rate' in feature and value > 0.2) or ('score' in feature and value < 1.0):
+                impact_description = "Significantly increases" if impact > 0 else "Significantly decreases"
+            elif ('rate' in feature and value > 0.1) or ('score' in feature and value < 1.2):
+                impact_description = "Moderately increases" if impact > 0 else "Moderately decreases"
+            else:
+                impact_description = "Slightly increases" if impact > 0 else "Slightly decreases"
+            
+            # Add threshold information for better context
+            threshold_info = ""
+            if 'performance_score' in feature:
+                threshold_info = " (Target: >1.2/2.0)"
+            elif 'rate' in feature:
+                threshold_info = " (Target: <20%)"
+            elif 'hours' in feature:
+                threshold_info = " (Target: >30 hours)"
+            elif 'engagement_score' in feature:
+                threshold_info = " (Target: >60%)"
+            
+            # Get value range for the feature
+            range_info = value_ranges.get(feature, "")
+            
             st.markdown(f"""
-                <div class="insight-box">
-                    <h4>{cluster['name']}</h4>
-                    <p style="color: #64748b; margin-bottom: 1rem;">
-                        {cluster['count']} employees • Average Risk: {cluster['avg_risk']:.2f}
+                <div style='background-color: {card_color}; padding: 10px; margin: 5px 0; border-radius: 5px;'>
+                    <p><strong>{feature.replace('_', ' ').title()}:</strong> {formatted_value}{threshold_info}</p>
+                    <p style='font-size: 0.8em; color: #666;'>{range_info}</p>
+                    <p style='font-size: 0.9em; color: {'#dc2626' if impact > 0 else '#059669'};'>
+                        {impact_description} attrition risk
                     </p>
-                    <div style="margin-bottom: 1rem;">
-                        <h5 style="color: #1e293b; margin-bottom: 0.5rem;">Recommended Actions:</h5>
-                        <ul style="margin: 0; padding-left: 1.5rem;">
-                            {''.join([f'<li style="color: #64748b; margin-bottom: 0.5rem;">{action}</li>' for action in cluster['actions']])}
-                        </ul>
-                    </div>
                 </div>
             """, unsafe_allow_html=True)
-            
-            # Show employees in this cluster
-            if 'ids' in cluster:
-                st.markdown("""
-                    <div class="insight-box">
-                        <h4>Employees in this Cluster</h4>
-                """, unsafe_allow_html=True)
-                
-                cluster_employees = df_with_pred[df_with_pred['employee_id'].isin(cluster['ids'])]
-                cluster_employees = cluster_employees[['employee_id', 'department', 'team', 'attrition_risk']]
-                cluster_employees = cluster_employees.sort_values('attrition_risk', ascending=False)
-                st.dataframe(cluster_employees)
-            
-            st.markdown("<hr style='margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+        
+        # Add explanation of feature values
+        st.markdown("""
+            <div style='background-color: #f8fafc; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                <h4>Understanding Feature Values</h4>
+                <p>The color coding indicates the risk level of each feature:</p>
+                <ul>
+                    <li><span style='color: #dc2626;'>Red</span> - High risk values that need immediate attention</li>
+                    <li><span style='color: #f59e0b;'>Orange</span> - Moderate risk values that should be monitored</li>
+                    <li><span style='color: #059669;'>Green</span> - Good values that contribute positively</li>
+                </ul>
+                <p>Target values and ranges are shown for each metric to provide context.</p>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # Recommendations Card
+    st.markdown('<h2 class="sub-header">Personalized Recommendations</h2>', unsafe_allow_html=True)
+    
+    # Get recommendations for this employee
+    risk_level = "High Risk" if risk_score >= 0.55 else "Early Warning" if risk_score >= 0.45 else "Low Risk"
+    
+    # Create a DataFrame with just this employee's data
+    employee_df = transformed_df.loc[[employee_id]]
+    employee_explanations = explanations[transformed_df.index == employee_id]
+    
+    # Generate recommendations
+    recommendations = generate_recommendations(
+        employee_df,
+        employee_explanations,
+        features,
+        risk_level
+    )
+    
+    if recommendations:
+        for rec in recommendations:
+            st.markdown(f"""
+                <div style='background-color: {'#ffebee' if rec['priority'] == 'Critical' else '#fff3e0' if rec['priority'] == 'High' else '#e8f5e9'}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                    <h5>{rec['action']}</h5>
+                    <p><strong>Priority:</strong> {rec['priority']}</p>
+                    <p><strong>Timeline:</strong> {rec['timeline']}</p>
+                    <p>{rec['details']}</p>
+                </div>
+            """, unsafe_allow_html=True)
     else:
-        st.write("No significant risk clusters identified.")
+        st.info("No specific recommendations available for this employee at this time.")
+        # Add some default recommendations based on risk level
+        if risk_level == "High Risk":
+            st.markdown("""
+                <div style='background-color: #ffebee; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                    <h5>Schedule Immediate Manager Meeting</h5>
+                    <p><strong>Priority:</strong> Critical</p>
+                    <p><strong>Timeline:</strong> Within 24 hours</p>
+                    <p>Arrange an urgent meeting with the employee's manager to discuss concerns and develop an immediate action plan.</p>
+                </div>
+            """, unsafe_allow_html=True)
+        elif risk_level == "Early Warning":
+            st.markdown("""
+                <div style='background-color: #fff3e0; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                    <h5>Schedule Regular Check-ins</h5>
+                    <p><strong>Priority:</strong> High</p>
+                    <p><strong>Timeline:</strong> Within 1 week</p>
+                    <p>Set up weekly check-ins with the employee to monitor their engagement and address any concerns.</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+def transform_data(df):
+    """Transform the data to match the model's expected features"""
+    transformed = pd.DataFrame()
     
-    # Individual recommendation tool
-    st.subheader("Individual Recommendation Tool")
+    # Convert EmployeeID to string format
+    df.index = df.index.astype(str)
     
-    # Filter to high-risk employees
-    high_risk_df = df_with_pred[df_with_pred['attrition_risk'] >= 0.6]
+    # Direct mappings
+    transformed['tenure'] = df['Tenure']
+    # PastPerformance is already on a scale of 0-2
+    transformed['performance_score'] = df['PastPerformance']
+    transformed['last_promotion'] = df['LastPromotionYearsAgo']
+    transformed['training_hours'] = df['TrainingParticipation']
+    transformed['role_changes'] = df['RoleChanges']
+    transformed['survey_satisfaction'] = df['FeedbackScore']
+    transformed['peer_attrition_last60d'] = df['TeamAttritionRate']
+    transformed['leave_days_taken'] = df['LeavePattern']
+    transformed['skill_relevance'] = df['SkillRelevance']
+    transformed['team_attrition_rate'] = df['TeamAttritionRate']
+    transformed['dept_attrition_rate'] = df['ManagerAttrition']  # Using manager attrition as a proxy
+    transformed['manager_avg_performance'] = df['Feedback360']  # Using 360 feedback as a proxy
+    transformed['manager_team_size'] = 10  # Default value
+    transformed['promotion_delay'] = df['LastPromotionYearsAgo']
+    transformed['never_promoted'] = (df['Promotions'] == 0).astype(int)
+    # Convert EventActivity to percentage (0-100)
+    transformed['engagement_score'] = df['EventActivity'] / 5  # Assuming EventActivity is on a scale of 0-5
+    transformed['stagnation_risk'] = (df['LastPromotionYearsAgo'] > 3).astype(int)
+    transformed['performance_above_dept_avg'] = (df['PastPerformance'] > df['PastPerformance'].mean()).astype(int)
+    transformed['leave_utilization'] = df['LeavePattern']
+    transformed['high_performer_no_promo'] = ((df['PastPerformance'] > 1.5) & (df['Promotions'] == 0)).astype(int)
     
-    if not high_risk_df.empty:
-        selected_employee_id = st.selectbox(
-            "Select a high-risk employee",
-            options=high_risk_df['employee_id'].tolist(),
-            format_func=lambda x: f"Employee #{x} ({high_risk_df[high_risk_df['employee_id']==x]['attrition_risk'].values[0]:.2f} risk)"
-        )
-        
-        if selected_employee_id:
-            employee_idx = df_with_pred[df_with_pred['employee_id'] == selected_employee_id].index[0]
-            employee_data = df_with_pred.loc[employee_idx:employee_idx]
-            
-            # Generate personalized recommendations
-            employee_explanation = explanations[0][employee_idx:employee_idx+1]
-            recommendations = generate_recommendations(employee_data, employee_explanation, features)
-            
-            # Display recommendations
-            if recommendations:
-                for i, rec in enumerate(recommendations):
-                    priority_color = {
-                        "High": "#D32F2F",
-                        "Medium": "#F57C00",
-                        "Low": "#388E3C"
-                    }
-                    
-                    st.markdown(
-                        f"""
-                        <div class="insight-box" style="border-left: 4px solid {priority_color[rec['priority']]}">
-                            <h4>{rec['action']} <span style="color:{priority_color[rec['priority']]}">({rec['priority']} Priority)</span></h4>
-                            <p>{rec['details']}</p>
-                        </div>
-                        """, 
-                        unsafe_allow_html=True
-                    )
-            else:
-                st.write("No specific recommendations generated.")
+    # Normalized features
+    transformed['training_hours_normalized'] = (df['TrainingParticipation'] - df['TrainingParticipation'].mean()) / df['TrainingParticipation'].std()
+    transformed['peer_attrition_last60d_normalized'] = (df['TeamAttritionRate'] - df['TeamAttritionRate'].mean()) / df['TeamAttritionRate'].std()
+    transformed['leave_days_taken_normalized'] = (df['LeavePattern'] - df['LeavePattern'].mean()) / df['LeavePattern'].std()
+    
+    return transformed
+
+def main():
+    """Main function to run the Streamlit app"""
+    # Initialize session state for tab selection and risk threshold
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = 0  # 0 for Overview, 1 for Employee Analysis
+    if 'risk_threshold' not in st.session_state:
+        st.session_state.risk_threshold = 40
+    
+    # Load data and resources
+    df = load_data()
+    if df is None:
+        st.error("Failed to load data. Please check the data file and try again.")
+        return
+    
+    # Set the index to EmployeeID column
+    df.set_index('EmployeeID', inplace=True)
+    
+    model, explainer = load_prediction_resources()
+    if model is None or explainer is None:
+        st.error("Failed to load prediction resources. Please check the model files and try again.")
+        return
+    
+    # Transform data to match model's expected features
+    transformed_df = transform_data(df)
+    
+    # Define features
+    features = ['tenure', 'performance_score', 'last_promotion', 'training_hours', 'role_changes',
+                'survey_satisfaction', 'peer_attrition_last60d', 'leave_days_taken', 'skill_relevance',
+                'team_attrition_rate', 'dept_attrition_rate', 'manager_avg_performance', 'manager_team_size',
+                'promotion_delay', 'never_promoted', 'engagement_score', 'stagnation_risk',
+                'performance_above_dept_avg', 'leave_utilization', 'high_performer_no_promo',
+                'training_hours_normalized', 'peer_attrition_last60d_normalized', 'leave_days_taken_normalized']
+    
+    # Generate predictions
+    probabilities, explanations = predict_all_employees(transformed_df, model, explainer, features)
+    if probabilities is None or explanations is None:
+        st.error("Failed to generate predictions. Please check the model and data.")
+        return
+    
+    # Create tabs
+    tab1, tab2 = st.tabs(["Overview", "Employee Analysis"])
+    
+    # Set active tab based on session state
+    active_tab = st.session_state.active_tab
+    
+    if active_tab == 0:
+        display_overview_tab(df, transformed_df, probabilities, features, explanations)
     else:
-        st.write("No high-risk employees identified.")
-    
-    # General retention strategies
-    with st.expander("General Retention Strategies"):
-        st.write("""
-        ### Organization-Wide Strategies
-        
-        1. **Regular career development conversations** - Ensure managers have structured career conversations with team members at least quarterly.
-        
-        2. **Skill development programs** - Provide learning opportunities aligned with both organizational needs and employee interests.
-        
-        3. **Recognition programs** - Implement both formal and informal ways to recognize employee contributions.
-        
-        4. **Flexible work arrangements** - Where possible, offer flexibility in work location and hours.
-        
-        5. **Competitive compensation reviews** - Regularly benchmark compensation against market rates.
-        
-        6. **Internal mobility programs** - Create pathways for employees to explore new roles within the organization.
-        
-        7. **Team building and engagement** - Foster a sense of belonging and purpose through team activities.
-        
-        8. **Manager training** - Equip managers with skills to support employee growth and retention.
-        """)
+        display_employee_analysis_tab(df, transformed_df, probabilities, explanations, features, model)
 
 if __name__ == "__main__":
     main()
