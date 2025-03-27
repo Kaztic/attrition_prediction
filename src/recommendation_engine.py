@@ -44,14 +44,15 @@ def generate_recommendations(employee_data, model_explanation, features, risk_le
     
     # Generate recommendations based on risk factors and actual values
     for feature, importance in risk_factors:
-        if importance <= 0:  # Skip factors that decrease attrition risk
+        # Skip factors that decrease attrition risk
+        if importance <= 0:
             continue
             
         # Get the actual value for this feature
         actual_value = employee_values[feature]
         
         # Career Growth Related
-        if "last_promotion" in feature:
+        if "LastPromotionYearsAgo" in feature:
             if actual_value > 3:  # No promotion for more than 3 years
                 recommendations.append({
                     "action": "Career Development Plan",
@@ -61,37 +62,37 @@ def generate_recommendations(employee_data, model_explanation, features, risk_le
                 })
             
         # Performance Related
-        elif "performance_score" in feature:
-            if actual_value < 0.7:  # Performance below 70%
+        elif "PastPerformance" in feature:
+            if actual_value < 3.5:  # Performance below 3.5/5
                 recommendations.append({
                     "action": "Performance Improvement Plan",
-                    "details": f"Develop a structured performance improvement plan. Current performance score: {actual_value:.1%}",
+                    "details": f"Develop a structured performance improvement plan. Current performance score: {actual_value:.1f}/5.0",
                     "priority": "High" if importance > 0.1 else "Medium",
                     "timeline": "Within 1 week"
                 })
             
         # Training and Development
-        elif "training_hours" in feature:
-            if actual_value < 20:  # Less than 20 training hours
+        elif "TrainingParticipation" in feature:
+            if actual_value < 20:  # Less than 20 training hours per year
                 recommendations.append({
                     "action": "Skill Development Program",
-                    "details": f"Enroll in relevant training programs. Current training hours: {actual_value:.1f}",
+                    "details": f"Enroll in relevant training programs. Current training hours per year: {actual_value:.1f}",
                     "priority": "Medium",
                     "timeline": "Within 1 month"
                 })
             
         # Role Changes
-        elif "role_changes" in feature:
-            if actual_value > 3:  # More than 3 role changes
+        elif "RoleChanges" in feature:
+            if actual_value > 0.5:  # More than 0.5 role changes per year
                 recommendations.append({
                     "action": "Role Stability Assessment",
-                    "details": f"Review role changes. Current number of changes: {actual_value:.1f}",
+                    "details": f"Review role changes. Current rate: {actual_value:.1f} changes per year",
                     "priority": "Medium",
                     "timeline": "Within 2 weeks"
                 })
             
         # Engagement
-        elif "engagement_score" in feature:
+        elif "EngagementScore" in feature:
             if actual_value < 0.6:  # Engagement below 60%
                 recommendations.append({
                     "action": "Engagement Improvement Plan",
@@ -101,17 +102,17 @@ def generate_recommendations(employee_data, model_explanation, features, risk_le
                 })
             
         # Work-Life Balance
-        elif "leave_days_taken" in feature:
-            if actual_value > 15:  # More than 15 days of leave
+        elif "LeavePattern" in feature:
+            if actual_value > 15:  # More than 15 days of leave per year
                 recommendations.append({
                     "action": "Work-Life Balance Review",
-                    "details": f"Review workload and work-life balance. Leave days taken: {actual_value:.1f}",
+                    "details": f"Review workload and work-life balance. Leave days taken: {actual_value:.1f} per year",
                     "priority": "Medium",
                     "timeline": "Within 2 weeks"
                 })
             
         # Team Environment
-        elif "team_attrition_rate" in feature:
+        elif "TeamAttritionRate" in feature:
             if actual_value > 0.2:  # Team attrition rate above 20%
                 recommendations.append({
                     "action": "Team Stability Initiative",
@@ -121,11 +122,31 @@ def generate_recommendations(employee_data, model_explanation, features, risk_le
                 })
             
         # Skill Relevance
-        elif "skill_relevance" in feature:
+        elif "SkillRelevance" in feature:
             if actual_value < 0.7:  # Skill relevance below 70%
                 recommendations.append({
                     "action": "Skill Alignment Review",
                     "details": f"Review and align skills with role. Current skill relevance: {actual_value:.1%}",
+                    "priority": "Medium",
+                    "timeline": "Within 2 weeks"
+                })
+            
+        # Department Attrition
+        elif "DeptAttritionRate" in feature:
+            if actual_value > 0.25:  # Department attrition rate above 25%
+                recommendations.append({
+                    "action": "Department Culture Review",
+                    "details": f"Review department culture and retention strategies. Current department attrition rate: {actual_value:.1%}",
+                    "priority": "High" if importance > 0.1 else "Medium",
+                    "timeline": "Within 1 week"
+                })
+            
+        # Recognition and Awards
+        elif "RecognitionCount" in feature or "AwardsReceived" in feature:
+            if actual_value < 1:  # No recognition or awards
+                recommendations.append({
+                    "action": "Recognition Program Review",
+                    "details": "Review and enhance recognition programs to improve employee motivation",
                     "priority": "Medium",
                     "timeline": "Within 2 weeks"
                 })
