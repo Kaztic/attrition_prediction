@@ -76,7 +76,7 @@ def generate_employee_record():
     """
     Uses Gemini LLM to generate structured employee data in CSV format.
     """
-    model = genai.GenerativeModel("gemini-2.0-pro-exp")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(PROMPT)
     
     try:
@@ -104,7 +104,7 @@ def transform_employee_data(input_file, output_file):
     cleaned_lines = [line for line in raw_content if not line.startswith("```")]
     
     # Save cleaned content to a new file
-    cleaned_file_path = "cleaned_employee_data.csv"
+    cleaned_file_path = "cleaned_employee_data2.csv"
     with open(cleaned_file_path, "w") as file:
         file.writelines(cleaned_lines)
     
@@ -137,7 +137,7 @@ def transform_employee_data(input_file, output_file):
 
 
 # Number of samples to generate
-num_samples = 3  # Adjust as needed
+num_samples = 500  # Adjust as needed
 
 # Generate data
 records = []
@@ -155,7 +155,7 @@ if records:
     full_csv_data = "\n".join(records)
 
     # Save to CSV file correctly formatted
-    with open("gemini_generated_employee_data.csv", "w", newline="", encoding="utf-8") as file:
+    with open("gemini_generated_employee_data2.csv", "w", newline="", encoding="utf-8") as file:
         reader = csv.reader(io.StringIO(full_csv_data))
         writer = csv.writer(file)
         
@@ -166,8 +166,8 @@ if records:
     #output_csv = 'output.csv'  # Replace with your output CSV file
     #transpose_csv(input_csv, output_csv)
 
-    input_file = 'gemini_generated_employee_data.csv'  # Input generated file
-    output_file = "structured_employee_data.csv"  # Output transformed file
+    input_file = 'gemini_generated_employee_data2.csv'  # Input generated file
+    output_file = "structured_employee_data2.csv"  # Output transformed file
     transform_employee_data(input_file, output_file)
 
     print("✅ Realistic employee dataset successfully generated and saved as CSV!")
