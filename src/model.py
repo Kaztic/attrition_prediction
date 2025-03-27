@@ -257,7 +257,7 @@ from sklearn.metrics import (
 )
 
 import shap
-import lime.lime_tabular
+# import lime.lime_tabular
 
 class AttritionPredictionModel:
     def __init__(self, model_type: str = 'random_forest'):
@@ -368,22 +368,22 @@ class AttritionPredictionModel:
                 'feature_names': self.feature_names
             }
         
-        elif explainer_type == 'lime':
-            explainer = lime.lime_tabular.LimeTabularExplainer(
-                X, feature_names=self.feature_names, 
-                class_names=['Retain', 'Attrite']
-            )
+        # elif explainer_type == 'lime':
+            # explainer = lime.lime_tabular.LimeTabularExplainer(
+            #     X, feature_names=self.feature_names, 
+            #     class_names=['Retain', 'Attrite']
+            # )
             
-            explanation = explainer.explain_instance(
-                X[instance_index], 
-                self.model.predict_proba, 
-                num_features=5
-            )
+            # explanation = explainer.explain_instance(
+            #     X[instance_index], 
+            #     self.model.predict_proba, 
+            #     num_features=5
+            # )
             
-            return {
-                'lime_explanation': explanation.as_list(),
-                'prediction_probability': self.predict(X[instance_index].reshape(1, -1))[0]
-            }
+            # return {
+            #     'lime_explanation': explanation.as_list(),
+            #     'prediction_probability': self.predict(X[instance_index].reshape(1, -1))[0]
+            # }
     
     def save_model(self, path='models/attrition_model.pkl'):
         """Save trained model to disk."""
@@ -430,11 +430,18 @@ def train_attrition_model(processed_data: Dict[str, Any]):
 
 # Example usage
 if __name__ == "__main__":
-    from src.data.synthetic_data_generator import generate_employee_dataset
-    from src.data.data_preprocessor import preprocess_employee_data
     
-    synthetic_data = generate_employee_dataset()
-    processed_data = preprocess_employee_data(filepath = None, dataframe=synthetic_data)
+    filepath = "./data/preprocessed_employee_data.csv"
+    # synthetic_data = generate_employee_dataset()
+    processed_data = pd.read_csv(filepath, header=0)
+
+    for column in processed_data.columns:
+        if processed_data[column].isnull().any():  # Check if the column has NaN values
+            processed_data[column].fillna(processed_data[column].mean(), inplace=True)
+
+    processed_data['AttritionLabel']  = processed_data['AttritionLabel'].astype(int)
+    processed_data['ManagerAttrition']  = processed_data['ManagerAttrition'].astype(int)
+    print("Must be binary classification!!! = ",processed_data['AttritionLabel'].value_counts())
     
     result = train_attrition_model(processed_data)
     
