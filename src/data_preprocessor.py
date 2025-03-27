@@ -39,6 +39,63 @@ def preprocess_employee_data(filepath = None, dataframe=None):
             logger.error(f"Must provide either path to dataset or dataframe")
             return None
         
+        # Store BU and Region columns if they exist
+        bu_column = None
+        region_column = None
+        if 'Business_Unit' in df.columns:
+            bu_column = df['Business_Unit'].copy()
+            categorical_columns = ['Business_Unit']
+        if 'Region' in df.columns:
+            region_column = df['Region'].copy()
+            categorical_columns = ['Region']
+        
+        # Apply data constraints
+        # Cap attrition rates at 100%
+        if 'TeamAttritionRate' in df.columns:
+            df['TeamAttritionRate'] = df['TeamAttritionRate'].clip(0, 100) / 100
+        if 'DeptAttritionRate' in df.columns:
+            df['DeptAttritionRate'] = df['DeptAttritionRate'].clip(0, 100) / 100
+            
+        # Cap performance scores at 5.0
+        if 'PastPerformance' in df.columns:
+            df['PastPerformance'] = df['PastPerformance'].clip(0, 5)
+            
+        # Cap training hours at 100
+        if 'TrainingParticipation' in df.columns:
+            df['TrainingParticipation'] = df['TrainingParticipation'].clip(0, 100)
+            
+        # Cap leave days at 30
+        if 'LeavePattern' in df.columns:
+            df['LeavePattern'] = df['LeavePattern'].clip(0, 30)
+            
+        # Cap engagement scores at 100%
+        if 'FeedbackScore' in df.columns:
+            df['FeedbackScore'] = df['FeedbackScore'].clip(0, 100) / 100
+            
+        # Cap sentiment scores at 1.0
+        if 'SentimentScore' in df.columns:
+            df['SentimentScore'] = df['SentimentScore'].clip(-1, 1)
+            
+        # Normalize role changes based on tenure
+        if 'RoleChanges' in df.columns and 'Tenure' in df.columns:
+            df['RoleChanges'] = df['RoleChanges'] / df['Tenure'].clip(1)  # Avoid division by zero
+            
+        # Normalize training hours based on tenure
+        if 'TrainingParticipation' in df.columns and 'Tenure' in df.columns:
+            df['TrainingParticipation'] = df['TrainingParticipation'] / df['Tenure'].clip(1)
+            
+        # Create composite engagement score
+        engagement_components = []
+        if 'FeedbackScore' in df.columns:
+            engagement_components.append(df['FeedbackScore'])
+        if 'SentimentScore' in df.columns:
+            engagement_components.append((df['SentimentScore'] + 1) / 2)  # Normalize to 0-1
+        if 'TrainingParticipation' in df.columns:
+            engagement_components.append(df['TrainingParticipation'] / 100)
+            
+        if engagement_components:
+            df['EngagementScore'] = pd.concat(engagement_components, axis=1).mean(axis=1)
+        
         # Define column types
         numeric_columns = [
             'Tenure', 'Promotions', 'LastPromotionYearsAgo', 
@@ -46,16 +103,28 @@ def preprocess_employee_data(filepath = None, dataframe=None):
             'EventActivity', 'FeedbackScore', 'SentimentScore', 
             'TeamAttritionRate', 'LocationChanges', 'Feedback360', 
             'RoleChanges', 'WorkLifeBalance', 'LeavePattern', 
-            'RecognitionCount', 'AwardsReceived'
+            'RecognitionCount', 'AwardsReceived', 'EngagementScore'
         ]
         
         categorical_columns = ['RoleHistory', 'ProjectType', 'ExitReason']
         binary_columns = ['ManagerAttrition', 'AttritionLabel']
         
+        # Handle BU and Region separately to ensure they are preserved
+        if 'Business_Unit' in df.columns:
+            bu_column = df['Business_Unit'].copy()
+            categorical_columns.append('Business_Unit')
+        if 'Region' in df.columns:
+            region_column = df['Region'].copy()
+            categorical_columns.append('Region')
+        
         # Drop non-feature columns first
-        columns_to_drop = ['EmployeeID', 'ManagerDialogue', 'EmployeeResponse']
+        columns_to_drop = ['ManagerDialogue', 'EmployeeResponse']
         columns_to_drop = [col for col in columns_to_drop if col in df.columns]
         df = df.drop(columns_to_drop, axis=1, errors='ignore')
+        
+        # Set EmployeeID as index if it exists
+        if 'EmployeeID' in df.columns:
+            df.set_index('EmployeeID', inplace=True)
         
         # Convert numeric columns
         for col in numeric_columns:
@@ -101,6 +170,12 @@ def preprocess_employee_data(filepath = None, dataframe=None):
             index=df.index
         )
         
+        # Add back BU and Region columns if they exist
+        if bu_column is not None:
+            df_processed['BU'] = bu_column  # Rename Business_Unit to BU for consistency
+        if region_column is not None:
+            df_processed['Region'] = region_column
+        
         # Logging preprocessing details
         logger.info("Preprocessing Complete")
         logger.info(f"Original features: {len(df.columns)}")
@@ -123,7 +198,7 @@ def main():
         data_processed = preprocess_employee_data(filepath=input_filepath, dataframe=pd.DataFrame())
         
         # Save processed data
-        data_processed.to_csv(output_features_filepath, index=False)
+        data_processed.to_csv(output_features_filepath, index=True)
         
         print(f"Processed features saved to: {output_features_filepath}")
     
