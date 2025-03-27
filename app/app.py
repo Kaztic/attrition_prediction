@@ -365,14 +365,15 @@ def load_prediction_resources():
 
 def format_risk_score(score):
     """Format the risk score with appropriate styling"""
-    # Convert to percentage (0-100)
-    percentage = score * 100
+    # Convert to percentage (0-100) and apply consistent adjustment
+    adjusted_score = min(score * 1.5, 1.0)  # Apply the same adjustment factor
+    percentage = adjusted_score * 100
     
-    if percentage >= 55:
+    if percentage >= 70:  # High risk threshold
         return f'<span class="risk-high">High Risk ({percentage:.0f}%)</span>'
-    elif percentage >= 40:
+    elif percentage >= 50:  # Medium risk threshold
         return f'<span class="risk-medium">Medium Risk ({percentage:.0f}%)</span>'
-    else:
+    else:  # Low risk
         return f'<span class="risk-low">Low Risk ({percentage:.0f}%)</span>'
 
 def predict_all_employees(df, model, explainer, features):
@@ -387,12 +388,6 @@ def predict_all_employees(df, model, explainer, features):
             'performance_above_dept_avg', 'leave_utilization', 'high_performer_no_promo',
             'Business_Unit_BU1', 'Business_Unit_BU2', 'Business_Unit_BU3'
         ]
-        
-        # Log feature information for debugging
-        st.write("Required features:", len(required_features))
-        st.write("Available features:", len(df.columns))
-        st.write("Missing features:", set(required_features) - set(df.columns))
-        st.write("Extra features:", set(df.columns) - set(required_features))
         
         # Ensure all required features are present
         missing_features = set(required_features) - set(df.columns)
@@ -447,7 +442,7 @@ def display_overview_tab(df, transformed_df, probabilities, features, explanatio
     if 'risk_filter' not in st.session_state:
         st.session_state.risk_filter = 'all'
     
-    # Adjust probabilities - do this once and use consistently
+    # Adjust probabilities consistently
     adjusted_probabilities = np.minimum(probabilities * 1.5, 1.0)
     
     # Key Metrics with clickable cards
@@ -723,7 +718,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, explanation
     
     # Employee Details Card
     employee_data = transformed_df.iloc[employee_idx]
-    # Use the same adjusted probabilities as in the overview tab
+    # Use consistent risk score calculation
     adjusted_probabilities = np.minimum(probabilities * 1.5, 1.0)
     risk_score = adjusted_probabilities[employee_idx]
     
@@ -736,18 +731,18 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, explanation
     training_hours = max(0, float(raw_data['TrainingParticipation']))  # Ensure not negative
     engagement_score = max(0, min(1.0, float(raw_data['EngagementScore'])))  # Clamp between 0 and 1.0
     
-    # Format risk level and color with new ranges - match the overview tab ranges
-    if risk_score >= 0.70:  # Above 70%
+    # Format risk level and color with consistent ranges
+    if risk_score >= 0.70:  # High risk threshold
         risk_level = "High Risk"
         risk_color = "#dc2626"
-    elif risk_score >= 0.50:  # 50% to 70%
+    elif risk_score >= 0.50:  # Medium risk threshold
         risk_level = "Medium Risk"
         risk_color = "#f59e0b"
-    else:  # Below 50%
+    else:  # Low risk
         risk_level = "Low Risk"
         risk_color = "#059669"
     
-    # Display employee overview
+    # Display employee overview with consistent risk score formatting
     st.markdown(f"""
         <div class="stCard">
             <h3>Employee Overview</h3>
