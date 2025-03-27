@@ -17,4 +17,4 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://MaheshBhat45:$HF_TOKEN@huggingface.co/spaces/MaheshBhat45/attrition_prediction develop:main
+        run: git push --force https://MaheshBhat45:$HF_TOKEN@huggingface.co/spaces/MaheshBhat45/AttritionPrediction develop:main
