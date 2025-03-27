@@ -33,11 +33,11 @@ def generate_recommendations(employee_data, model_explanation, features):
             continue
             
         # Generate recommendations based on feature and importance
-        if "promotion_delay" in feature or "never_promoted" in feature:
+        if "LastPromotionYearsAgo" in feature and importance > 0.05 :
             recommendations.append({
                 "action": "Career progression review",
                 "details": "Schedule a career path discussion to explore growth opportunities",
-                "priority": "High" if importance > 0.1 else "Medium"
+                "priority": "High" if importance > 0.05 else "Medium"
             })
             
         elif "tenure" in feature and importance > 0:
@@ -47,8 +47,8 @@ def generate_recommendations(employee_data, model_explanation, features):
                 "priority": "Medium"
             })
             
-        elif "performance" in feature and importance > 0:
-            if "high_performer" in feature:
+        elif "PastPerformance" in feature and importance > 0:
+            if "AwardsReceived" in feature and importance > :
                 recommendations.append({
                     "action": "High performer retention",
                     "details": "Provide special projects, visibility with leadership, and growth opportunities",

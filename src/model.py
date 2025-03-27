@@ -250,7 +250,7 @@ import joblib
 from typing import Dict, Any
 
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier 
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, 
     f1_score, roc_auc_score, confusion_matrix
@@ -284,14 +284,17 @@ class AttritionPredictionModel:
         
         # Split into train and validation sets
         X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=0.4, random_state=42
+            X, y, test_size=0.2, random_state=42
         )
         
         # Model selection and training
         if self.model_type == 'random_forest':
             self.model = RandomForestClassifier(
-                n_estimators=30, 
-                random_state=42, 
+                n_estimators=10,
+                max_depth=10,
+                min_samples_split=5,
+                min_samples_leaf=2,
+                random_state=42,
                 class_weight='balanced'
             )
         
@@ -365,7 +368,8 @@ class AttritionPredictionModel:
             return {
                 'shap_values': shap_values,
                 'base_value': explainer.expected_value,
-                'feature_names': self.feature_names
+                'feature_names': self.feature_names,
+                'prediction_probability': self.predict(X)
             }
         
         # elif explainer_type == 'lime':
@@ -442,6 +446,7 @@ if __name__ == "__main__":
     processed_data['AttritionLabel']  = processed_data['AttritionLabel'].astype(int)
     processed_data['ManagerAttrition']  = processed_data['ManagerAttrition'].astype(int)
     print("Must be binary classification!!! = ",processed_data['AttritionLabel'].value_counts())
+    processed_data = processed_data.drop(['ExitReason_None'], axis=1)
     
     result = train_attrition_model(processed_data)
     
