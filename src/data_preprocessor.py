@@ -33,13 +33,14 @@ def preprocess_employee_data(filepath = None, dataframe=None):
             df = pd.read_csv(filepath)
             logger.info(f"Loaded dataset with {len(df)} rows")
         elif filepath == None:
-            df=dataframe.copy()
+            df = dataframe.copy()
             logger.info(f"Loaded dataset with {len(df)} rows")
         else:
             logger.error(f"Must provide either path to dataset or dataframe")
+            return None
         
-        # Identify feature types
-        numerical_features = [
+        # Define column types
+        numeric_columns = [
             'Tenure', 'Promotions', 'LastPromotionYearsAgo', 
             'PastPerformance', 'SkillRelevance', 'TrainingParticipation', 
             'EventActivity', 'FeedbackScore', 'SentimentScore', 
@@ -47,17 +48,30 @@ def preprocess_employee_data(filepath = None, dataframe=None):
             'RoleChanges', 'WorkLifeBalance', 'LeavePattern', 
             'RecognitionCount', 'AwardsReceived'
         ]
-
-        categorical_features = [
-            'RoleHistory', 'ProjectType', 'ExitReason'
-        ]
         
-        print(df.dtypes, df['ManagerAttrition'].astype(int))
-        binary_features = ['ManagerAttrition','AttritionLabel']
-        df[binary_features] = df[binary_features].astype('int')
+        categorical_columns = ['RoleHistory', 'ProjectType', 'ExitReason']
+        binary_columns = ['ManagerAttrition', 'AttritionLabel']
         
-        # Separate features and target
-        df_stripped = df.drop(['EmployeeID', 'ManagerDialogue', 'EmployeeResponse'], axis=1)
+        # Drop non-feature columns first
+        columns_to_drop = ['EmployeeID', 'ManagerDialogue', 'EmployeeResponse']
+        columns_to_drop = [col for col in columns_to_drop if col in df.columns]
+        df = df.drop(columns_to_drop, axis=1, errors='ignore')
+        
+        # Convert numeric columns
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Convert binary columns to int, handling missing values
+        for col in binary_columns:
+            if col in df.columns:
+                # First convert to numeric, then fill missing values with 0, then convert to int
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+        
+        # Identify which columns actually exist in the dataframe
+        numerical_features = [col for col in numeric_columns if col in df.columns]
+        categorical_features = [col for col in categorical_columns if col in df.columns]
+        binary_features = [col for col in binary_columns if col in df.columns]
         
         # Create preprocessing steps
         preprocessor = ColumnTransformer(
@@ -71,8 +85,7 @@ def preprocess_employee_data(filepath = None, dataframe=None):
             ])
         
         # Fit and transform the data
-        df_transformed = preprocessor.fit_transform(df_stripped)
-        print(df_transformed.dtypes)
+        df_transformed = preprocessor.fit_transform(df)
         
         # Get feature names after transformation
         feature_names = (
@@ -85,7 +98,7 @@ def preprocess_employee_data(filepath = None, dataframe=None):
         df_processed = pd.DataFrame(
             df_transformed, 
             columns=feature_names, 
-            index=df_stripped.index
+            index=df.index
         )
         
         # Logging preprocessing details
