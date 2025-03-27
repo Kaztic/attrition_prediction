@@ -290,7 +290,7 @@ class AttritionPredictionModel:
         # Model selection and training
         if self.model_type == 'random_forest':
             self.model = RandomForestClassifier(
-                n_estimators=10,
+                n_estimators=20,
                 max_depth=10,
                 min_samples_split=5,
                 min_samples_leaf=2,
@@ -310,7 +310,7 @@ class AttritionPredictionModel:
             'Importance': self.model.feature_importances_
         }).sort_values('Importance', ascending=False)
         
-        for _, row in feature_importance.head(10).iterrows():
+        for _, row in feature_importance.iterrows():
             print(f"  {row['Feature']}: {row['Importance']:.4f}")
         
         return feature_importance, self._evaluate_model(y_val, y_pred)
@@ -446,6 +446,8 @@ if __name__ == "__main__":
     processed_data['AttritionLabel']  = processed_data['AttritionLabel'].astype(int)
     processed_data['ManagerAttrition']  = processed_data['ManagerAttrition'].astype(int)
     print("Must be binary classification!!! = ",processed_data['AttritionLabel'].value_counts())
+    
+    processed_data = processed_data.drop(['EmployeeID'], axis=1)
     processed_data = processed_data.drop(['ExitReason_None'], axis=1)
     
     result = train_attrition_model(processed_data)
