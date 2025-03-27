@@ -442,8 +442,8 @@ def display_overview_tab(df, transformed_df, probabilities, features, explanatio
     if 'risk_filter' not in st.session_state:
         st.session_state.risk_filter = 'all'
     
-    # Adjust probabilities consistently
-    adjusted_probabilities = np.minimum(probabilities * 1.5, 1.0)
+    # Use raw probabilities without scaling
+    adjusted_probabilities = probabilities
     
     # Key Metrics with clickable cards
     col1, col2, col3, col4 = st.columns(4)
@@ -718,18 +718,11 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, explanation
     
     # Employee Details Card
     employee_data = transformed_df.iloc[employee_idx]
-    # Use consistent risk score calculation
-    adjusted_probabilities = np.minimum(probabilities * 1.5, 1.0)
-    risk_score = adjusted_probabilities[employee_idx]
+    # Use raw probabilities without scaling
+    risk_score = probabilities[employee_idx]
     
     # Get raw data for display
     raw_data = df.iloc[employee_idx]
-    
-    # Normalize and validate display values - using proper scaling
-    tenure = max(0, float(raw_data['Tenure']))  # Ensure tenure is not negative
-    performance_score = max(0, min(2.0, float(raw_data['PastPerformance'])))  # Clamp between 0 and 2.0
-    training_hours = max(0, float(raw_data['TrainingParticipation']))  # Ensure not negative
-    engagement_score = max(0, min(1.0, float(raw_data['EngagementScore'])))  # Clamp between 0 and 1.0
     
     # Format risk level and color with consistent ranges
     if risk_score >= 0.70:  # High risk threshold
@@ -742,17 +735,17 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, explanation
         risk_level = "Low Risk"
         risk_color = "#059669"
     
-    # Display employee overview with consistent risk score formatting
+    # Display employee overview with raw data
     st.markdown(f"""
         <div class="stCard">
             <h3>Employee Overview</h3>
             <div style='display: flex; justify-content: space-between; align-items: center;'>
                 <div>
                     <p><strong>Employee ID:</strong> {employee_id}</p>
-                    <p><strong>Tenure:</strong> {tenure:.1f} years</p>
-                    <p><strong>Performance Score:</strong> {performance_score:.1f}/2.0</p>
-                    <p><strong>Training Hours:</strong> {training_hours:.1f} hours/year</p>
-                    <p><strong>Engagement Score:</strong> {(engagement_score*100):.1f}%</p>
+                    <p><strong>Tenure:</strong> {raw_data['Tenure']:.1f} years</p>
+                    <p><strong>Performance Score:</strong> {raw_data['PastPerformance']:.1f}/2.0</p>
+                    <p><strong>Training Hours:</strong> {raw_data['TrainingParticipation']:.1f} hours/year</p>
+                    <p><strong>Engagement Score:</strong> {(raw_data['EngagementScore']*100):.1f}%</p>
                 </div>
                 <div style='text-align: right;'>
                     <h4>Attrition Risk</h4>
