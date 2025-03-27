@@ -50,6 +50,7 @@ st.markdown("""
         letter-spacing: -0.02em;
     }
     
+    
     .sub-header {
         font-family: 'Poppins', sans-serif;
         font-size: 1.5rem;
@@ -110,6 +111,7 @@ st.markdown("""
         background-color: #fee2e2;
     }
     
+    
     .risk-medium {
         color: #f59e0b;
         font-weight: 600;
@@ -117,6 +119,7 @@ st.markdown("""
         border-radius: 0.5rem;
         background-color: #fef3c7;
     }
+    
     
     .risk-low {
         color: #059669;
