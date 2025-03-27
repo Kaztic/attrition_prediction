@@ -110,27 +110,27 @@ st.markdown("""
     
     /* Risk Indicators */
     .risk-high {
-        color: #dc2626;
+        color: #ffffff;
         font-weight: 600;
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
-        background-color: #fee2e2;
+        background-color: #dc2626;
     }
     
     .risk-medium {
-        color: #f59e0b;
+        color: #ffffff;
         font-weight: 600;
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
-        background-color: #fef3c7;
+        background-color: #f59e0b;
     }
     
     .risk-low {
-        color: #059669;
+        color: #ffffff;
         font-weight: 600;
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
-        background-color: #d1fae5;
+        background-color: #059669;
     }
     
     /* Tabs */
@@ -1121,12 +1121,15 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
     if risk_score >= 0.70:  # High risk threshold
         risk_level = "High Risk"
         risk_color = "#dc2626"
+        text_color = "white"
     elif risk_score >= 0.50:  # Medium risk threshold
         risk_level = "Medium Risk"
         risk_color = "#f59e0b"
+        text_color = "white"
     else:  # Low risk
         risk_level = "Low Risk"
         risk_color = "#059669"
+        text_color = "white"
     
     # Display employee overview with raw data
     with st.container():
@@ -1143,7 +1146,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                     </div>
                     <div style='text-align: right;'>
                         <h4>Attrition Risk</h4>
-                        <div style='color: {risk_color}; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; background-color: {risk_color}20;'>
+                        <div style='color: {text_color}; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; background-color: {risk_color};'>
                             {risk_level} ({risk_score*100:.0f}%)
                         </div>
                     </div>
@@ -1267,16 +1270,18 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 
                 # Set color based on impact
                 if impact > 0:
-                    color = '#ffebee'  # Light red
+                    color = '#dc2626'  # Red background
+                    bg_color = '#fee2e2'  # Light red background
                     impact_text = "increases"
                 else:
-                    color = '#e8f5e9'  # Light green
+                    color = '#059669'  # Green
+                    bg_color = '#d1fae5'  # Light green background
                     impact_text = "decreases"
                 
                 st.markdown(f"""
-                    <div style='background-color: {color}; padding: 10px; margin: 5px 0; border-radius: 5px;'>
+                    <div style='background-color: {bg_color}; padding: 10px; margin: 5px 0; border-radius: 5px;'>
                         <p><strong>{feature.replace('_', ' ').title()}:</strong> {formatted_value}</p>
-                        <p style='font-size: 0.9em; color: {'#dc2626' if impact > 0 else '#059669'};'>
+                        <p style='font-size: 0.9em; color: {color};'>
                             {impact_text} attrition risk by {abs(impact):.3f}
                         </p>
                     </div>
@@ -1323,7 +1328,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
     
         if role_cluster_found:
             st.markdown(f"""
-                <div style='background-color: #ffebee; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                <div style='background-color: #dc2626; padding: 15px; margin: 10px 0; border-radius: 5px; color: white;'>
                     <h5>⚠️ High Risk Role Alert</h5>
                     <p><strong>Alert Level:</strong> Critical</p>
                     <p><strong>Details:</strong> {role_high_risk_count} employees in the same role are at high risk of attrition.</p>
@@ -1333,7 +1338,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
     
         if bu_cluster_found:
             st.markdown(f"""
-                <div style='background-color: #ffebee; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                <div style='background-color: #dc2626; padding: 15px; margin: 10px 0; border-radius: 5px; color: white;'>
                     <h5>⚠️ High Risk Business Unit Alert</h5>
                     <p><strong>Alert Level:</strong> Critical</p>
                     <p><strong>Details:</strong> {bu_high_risk_count} members of {employee_bu} are at high risk of attrition.</p>
@@ -1343,7 +1348,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
     
         if not role_cluster_found and not bu_cluster_found:
             st.markdown("""
-                <div style='background-color: #e8f5e9; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                <div style='background-color: #059669; padding: 15px; margin: 10px 0; border-radius: 5px; color: white;'>
                     <h5>✓ No Risk Clusters Detected</h5>
                     <p>No significant risk clusters found in this employee's role or business unit.</p>
                 </div>
@@ -1379,14 +1384,17 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             for rec in recommendations:
                 # Set color based on priority
                 if rec['priority'] == 'Critical':
-                    color = '#ffebee'  # Light red
+                    bg_color = '#dc2626'  # Red background
+                    text_color = 'white'  # White text
                 elif rec['priority'] == 'High':
-                    color = '#fff3e0'  # Light orange
+                    bg_color = '#f59e0b'  # Orange background
+                    text_color = 'white'  # White text
                 else:
-                    color = '#e8f5e9'  # Light green
+                    bg_color = '#059669'  # Green background
+                    text_color = 'white'  # White text
                 
                 st.markdown(f"""
-                    <div style='background-color: {color}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                    <div style='background-color: {bg_color}; color: {text_color}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
                         <h5>{rec['action']}</h5>
                         <p><strong>Priority:</strong> {rec['priority']}</p>
                         <p><strong>Timeline:</strong> {rec['timeline']}</p>
@@ -1397,7 +1405,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             # Add default recommendations based on risk level
             if risk_level == "High Risk":
                 st.markdown(f"""
-                    <div style='background-color: #ffebee; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                    <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
                         <h5>Immediate Action Required</h5>
                         <p><strong>Priority:</strong> Critical</p>
                         <p><strong>Timeline:</strong> Within 24 hours</p>
@@ -1412,7 +1420,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 """, unsafe_allow_html=True)
             elif risk_level == "Medium Risk":
                 st.markdown(f"""
-                    <div style='background-color: #fff3e0; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                    <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
                         <h5>Proactive Intervention Needed</h5>
                         <p><strong>Priority:</strong> High</p>
                         <p><strong>Timeline:</strong> Within 1 week</p>
