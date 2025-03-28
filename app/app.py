@@ -724,7 +724,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
             bu_columns = [col for col in df.columns if col.startswith('Business_Unit_')]
             if bu_columns:
                 # Add option to show all BUs
-                show_all_bus = st.checkbox("Show all Business Units", value=False, key="show_all_bus")
+                show_all_bus = st.checkbox("Show all Business Units", value=True, key="show_all_bus")
                 
                 # Calculate or retrieve heatmap data
                 bu_heatmap_key = f"bu_heatmap_{st.session_state.risk_filter}_{show_all_bus}"
@@ -764,9 +764,9 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                         bu_attrition = bu_attrition[sorted_columns]
                     
                     # Add horizontal bar chart option
-                    chart_type = st.radio("Chart type", ["Heatmap", "Bar chart"], key="bu_chart_type")
+                    chart_type = st.radio("Chart type", ["Bar chart", "Heatmap"], key="bu_chart_type")
                     
-                    if chart_type == "Heatmap":
+                    if chart_type == "Heatmap": # For region chart
                         fig_bu = px.imshow(
                             bu_attrition,
                             title="Attrition Rate by Business Unit",
@@ -900,7 +900,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
             region_columns = [col for col in df.columns if col.startswith('Region_')]
             if region_columns:
                 # Add option to show all regions
-                show_all_regions = st.checkbox("Show all Regions", value=False, key="show_all_regions")
+                show_all_regions = st.checkbox("Show all Regions", value=True, key="show_all_regions")
                 
                 # Calculate or retrieve heatmap data
                 region_heatmap_key = f"region_heatmap_{st.session_state.risk_filter}_{show_all_regions}"
@@ -941,9 +941,9 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                         region_attrition = region_attrition[sorted_columns]
                     
                     # Add horizontal bar chart option
-                    chart_type = st.radio("Chart type", ["Heatmap", "Bar chart"], key="region_chart_type")
+                    chart_type = st.radio("Chart type", ["Bar chart", "Heatmap"], key="region_chart_type")
                     
-                    if chart_type == "Heatmap":
+                    if chart_type == "Heatmap": # For region chart
                         fig_region = px.imshow(
                             region_attrition,
                             title="Attrition Rate by Region",
