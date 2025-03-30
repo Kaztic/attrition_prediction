@@ -1575,7 +1575,7 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                             </div>
                             <div style='font-size: 0.9rem; margin-top: 5px; display: flex; align-items: center;'>
                                 <span style='color: {color}; font-weight: 600; font-size: 1.1rem; margin-right: 5px;'>{icon}</span>
-                                <span>{impact_text} attrition risk by <span style='font-weight: 600; color: {color};'>{abs(impact):.3f}</span></span>
+                                <span>{impact_text} attrition risk by <span style='font-weight: 600; color: {color};'>{abs(impact)*100:.1f}%</span></span>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
