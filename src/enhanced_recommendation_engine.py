@@ -114,14 +114,59 @@ class ContextualRetentionRecommender:
                 # Low risk - choose least critical feature for proactive development
                 selected_feature = relevant_features[-1] if relevant_features else 'training_hours'
             
-            # Select recommendation strategy
-            recommendation = self.retention_strategies.get(
-                selected_feature, 
-                ["Develop a personalized professional growth strategy based on job performance and engagement levels."]
-            )[0]
+            # Map feature name to standardized key for retention strategies
+            # Try various transformations of the feature name to find a match
+            recommendations = None
+            original_feature = selected_feature
+            
+            # Try exact match
+            if selected_feature in self.retention_strategies:
+                recommendations = self.retention_strategies[selected_feature]
+            else:
+                # Try lowercase
+                lowercase_feature = selected_feature.lower()
+                if lowercase_feature in self.retention_strategies:
+                    recommendations = self.retention_strategies[lowercase_feature]
+                else:
+                    # Try with underscores replaced by spaces
+                    spaced_feature = selected_feature.replace('_', ' ')
+                    if spaced_feature in self.retention_strategies:
+                        recommendations = self.retention_strategies[spaced_feature]
+                    else:
+                        # Try common variations
+                        variations = {
+                            'engagement': 'engagement_score',
+                            'performance': 'performance_score',
+                            'training': 'training_hours',
+                            'team': 'team_attrition_rate',
+                            'promotion': 'last_promotion',
+                            'worklife': 'work_from_home',
+                        }
+                        
+                        for key, value in variations.items():
+                            if key in selected_feature.lower():
+                                if value in self.retention_strategies:
+                                    recommendations = self.retention_strategies[value]
+                                    selected_feature = value
+                                    break
+            
+            # If still no recommendation found, try finding the closest match
+            if not recommendations:
+                for strategy_key in self.retention_strategies:
+                    if strategy_key.lower() in selected_feature.lower() or selected_feature.lower() in strategy_key.lower():
+                        recommendations = self.retention_strategies[strategy_key]
+                        selected_feature = strategy_key
+                        break
+            
+            # Fallback if no match found
+            if not recommendations:
+                recommendations = ["Develop a personalized professional growth strategy based on job performance and engagement levels."]
+                
+            recommendation = recommendations[0]
             
             return {
-                'selected_feature': selected_feature,
+                'selected_feature': original_feature,
+                'mapped_feature': selected_feature if selected_feature != original_feature else original_feature,
                 'keywords': keywords,
                 'relevant_features': relevant_features,
                 'personalized_recommendation': recommendation,

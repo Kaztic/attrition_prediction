@@ -96,5 +96,50 @@ retention_strategies = {
     ],
     'TrainingParticipation': [
         "Provide incentives for completing skill development programs. Offer career coaching alongside training initiatives."
+    ],
+    'tenure': [
+        "Recognize and reward long-term employees with special benefits and recognition programs. Create mentorship opportunities where tenured employees can share their knowledge."
+    ],
+    'engagement_score': [
+        "Design targeted engagement initiatives based on employee feedback. Implement regular pulse surveys to monitor engagement levels and address issues promptly."
+    ],
+    'performance_score': [
+        "Create a structured performance improvement plan with clear goals and milestones. Provide additional resources and training to help improve specific performance areas."
+    ],
+    'team_attrition_rate': [
+        "Conduct team climate assessments to identify underlying issues affecting retention. Implement team-building activities to strengthen relationships and commitment."
+    ],
+    'last_promotion': [
+        "Review promotion timelines and create a clear career progression framework. Schedule career development conversations to understand aspirations and create advancement opportunities."
+    ],
+    'training_hours': [
+        "Implement a personalized learning and development plan with specific skill enhancement goals. Allocate dedicated time for professional development activities."
+    ],
+    'role_changes': [
+        "Create a structured role rotation program to provide varied experience while maintaining stability. Develop clear transition plans for employees changing roles."
+    ],
+    'department_attrition': [
+        "Conduct department-specific retention analysis to identify structural issues. Implement targeted interventions based on department-specific feedback."
+    ],
+    'business_unit': [
+        "Evaluate business unit practices against company-wide benchmarks for employee satisfaction. Implement best practices from high-performing units across the organization."
+    ],
+    'manager_rating': [
+        "Provide coaching and leadership development for managers with lower ratings. Implement a structured feedback system for continuous improvement."
+    ],
+    'skill_gap': [
+        "Create targeted upskilling programs to address identified skill gaps. Partner with learning institutions for specialized training programs."
+    ],
+    'overtime_hours': [
+        "Review workload distribution and team capacity to reduce excessive overtime. Implement work prioritization frameworks to focus on high-impact activities."
+    ],
+    'peer_rating': [
+        "Facilitate team-building activities to improve interpersonal relationships. Implement collaborative projects to enhance team dynamics."
+    ],
+    'work_from_home': [
+        "Optimize remote work policies to improve productivity and work-life balance. Provide necessary tools and resources for effective remote work."
+    ],
+    'salary_comparison': [
+        "Conduct market salary analysis to ensure competitive compensation packages. Implement transparent salary bands and promotion criteria."
     ]
 }

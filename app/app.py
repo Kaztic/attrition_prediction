@@ -1624,6 +1624,17 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 st.session_state[recs_cache_key] = recommendations
             except Exception as e:
                 st.debug(f"Error generating recommendations: {str(e)}")
+                # Log more details about the error for debugging
+                import traceback
+                error_details = traceback.format_exc()
+                st.session_state['last_recommendation_error'] = {
+                    'error': str(e),
+                    'traceback': error_details,
+                    'employee_id': employee_id,
+                    'risk_score': risk_score,
+                    'feature_importance': feature_importance[:3] if feature_importance else []
+                }
+                
                 # Create a default recommendation
                 recommendations = {
                     'selected_feature': 'employee_engagement',
@@ -1658,17 +1669,21 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             # Show additional context
             with st.expander("Recommendation Context"):
                 st.write("Selected Feature:", recommendations["selected_feature"])
+                if "mapped_feature" in recommendations and recommendations["selected_feature"] != recommendations["mapped_feature"]:
+                    st.write("Mapped to:", recommendations["mapped_feature"])
                 st.write("Relevant Features:", ", ".join(recommendations["relevant_features"]))
                 st.write("Keywords Identified:", ", ".join(recommendations["keywords"]))
+                if "attrition_probability" in recommendations:
+                    st.write("Attrition Probability:", f"{recommendations['attrition_probability']*100:.1f}%")
             
             # Show all associated retention strategies for the selected feature
             with st.expander("Additional Strategies"):
-                feature = recommendations["selected_feature"]
+                feature = recommendations.get("mapped_feature", recommendations["selected_feature"])
                 if feature in retention_strategies:
                     for strategy in retention_strategies[feature]:
                         st.write(f"• {strategy}")
                 else:
-                    st.write("No additional strategies available.")
+                    st.write("No additional strategies available for feature:", feature)
         else:
             # Add default recommendations based on risk level
             if risk_level == "High Risk":
