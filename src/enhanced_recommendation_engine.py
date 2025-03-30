@@ -20,24 +20,35 @@ class ContextualRetentionRecommender:
         # Retention strategies
         self.retention_strategies = retention_strategies
     
-    def extract_contextual_keywords(self, dialogues: Dict[str, List[str]]) -> List[str]:
+    def extract_contextual_keywords(self, dialogues: Dict[str, str]) -> List[str]:
         """
         Extract meaningful keywords from dialogues.
         
         Args:
-            dialogues (Dict[str, List[str]]): Dialogue texts
+            dialogues (Dict[str, str]): Dialogue texts
         
         Returns:
             List of extracted keywords
         """
         keywords = []
-        # for dial_list in dialogues.values():
-        for dialogue in dialogues.values():
+        
+        # Handle empty dialogues or None
+        if not dialogues:
+            return []
+            
+        for key, dialogue in dialogues.items():
+            # Skip empty, None, or NaN values
+            if not isinstance(dialogue, str) or not dialogue or dialogue.lower() == 'nan':
+                continue
+                
+            # Clean and tokenize the dialogue
             words = dialogue.lower().split()
             keywords.extend([
                 word for word in words 
-                if len(word) > 3 and word not in ['this', 'that', 'with', 'from']
+                if len(word) > 3 and word not in ['this', 'that', 'with', 'from', 'have', 'what', 'when', 'your', 'will', 'been']
             ])
+        
+        # Return unique keywords
         return list(set(keywords))
     
     def identify_relevant_features(self, keywords: List[str]) -> List[str]:
@@ -60,7 +71,7 @@ class ContextualRetentionRecommender:
     
     def generate_personalized_recommendation(
         self, 
-        dialogues: Dict[str, List[str]], 
+        dialogues: Dict[str, str], 
         feature_importance: List[Dict],
         attrition_prob: float
     ) -> Dict[str, Union[str, float, List[Dict]]]:
@@ -68,60 +79,98 @@ class ContextualRetentionRecommender:
         Generate a contextually relevant retention recommendation.
         
         Args:
-            dialogues (Dict[str, List[str]]): Dialogue texts
+            dialogues (Dict[str, str]): Dialogue texts
             feature_importance (List[Dict]): Model's feature importance
             attrition_prob (float): Predicted attrition probability
         
         Returns:
             Dict with personalized retention recommendation
         """
-        # Extract keywords
-        keywords = self.extract_contextual_keywords(dialogues)
-        
-        # Identify relevant features
-        relevant_features = self.identify_relevant_features(keywords)
-        
-        # If no relevant features found, use all features
-        if not relevant_features:
-            relevant_features = [f['feature'] for f in feature_importance]
-        
-        # Determine recommendation based on attrition probability and relevant features
-        if attrition_prob > 0.7:
-            # High risk scenario - prioritize most critical feature
-            selected_feature = relevant_features[0]
-        elif attrition_prob > 0.4:
-            # Moderate risk - choose second most relevant feature
-            selected_feature = relevant_features[1] if len(relevant_features) > 1 else relevant_features[0]
-        else:
-            # Low risk - choose least critical feature for proactive development
-            selected_feature = relevant_features[-1]
-        
-        # Select recommendation strategy
-        recommendation = self.retention_strategies.get(
-            selected_feature, 
-            ["Develop a personalized professional growth strategy"]
-        )[0]
-        
-        return {
-            'selected_feature': selected_feature,
-            'keywords': keywords,
-            'relevant_features': relevant_features,
-            'personalized_recommendation': recommendation,
-            'attrition_probability': attrition_prob,
-            'priority': 'High' if attrition_prob > 0.7 else 'Medium'
-        }
+        try:
+            # Extract keywords
+            keywords = self.extract_contextual_keywords(dialogues)
+            
+            # Identify relevant features
+            relevant_features = self.identify_relevant_features(keywords)
+            
+            # If no relevant features found from keywords, use top features from importance
+            if not relevant_features and feature_importance:
+                # Get top 3 features by importance
+                top_features = [f['feature'] for f in sorted(feature_importance, key=lambda x: x['importance'], reverse=True)[:3]]
+                relevant_features = top_features
+            
+            # If still no relevant features, use a default set
+            if not relevant_features:
+                relevant_features = ['tenure', 'engagement_score', 'performance_score']
+            
+            # Determine recommendation based on attrition probability and relevant features
+            if attrition_prob > 0.7:
+                # High risk scenario - prioritize most critical feature
+                selected_feature = relevant_features[0] if relevant_features else 'engagement_score'
+            elif attrition_prob > 0.4:
+                # Moderate risk - choose second most relevant feature
+                selected_feature = relevant_features[1] if len(relevant_features) > 1 else relevant_features[0] if relevant_features else 'performance_score'
+            else:
+                # Low risk - choose least critical feature for proactive development
+                selected_feature = relevant_features[-1] if relevant_features else 'training_hours'
+            
+            # Select recommendation strategy
+            recommendation = self.retention_strategies.get(
+                selected_feature, 
+                ["Develop a personalized professional growth strategy based on job performance and engagement levels."]
+            )[0]
+            
+            return {
+                'selected_feature': selected_feature,
+                'keywords': keywords,
+                'relevant_features': relevant_features,
+                'personalized_recommendation': recommendation,
+                'attrition_probability': attrition_prob,
+                'priority': 'High' if attrition_prob > 0.7 else 'Medium'
+            }
+        except Exception as e:
+            # Provide a fallback recommendation if anything fails
+            default_feature = 'engagement_score'
+            default_recommendation = "Focus on improving employee engagement through regular check-ins and development opportunities."
+            
+            return {
+                'selected_feature': default_feature,
+                'keywords': [],
+                'relevant_features': [default_feature],
+                'personalized_recommendation': default_recommendation,
+                'attrition_probability': attrition_prob,
+                'priority': 'High' if attrition_prob > 0.7 else 'Medium'
+            }
 
 def get_employee_retention_recommendation(
-    dialogues: Dict[str, List[str]],
+    dialogues: Dict[str, str],
     feature_importance: List[Dict],
     attrition_prob: float
 ) -> Dict:
     """
     Generate a contextually relevant retention recommendation.
+    
+    Args:
+        dialogues: Dictionary with dialogue texts
+        feature_importance: List of feature importance dictionaries
+        attrition_prob: Predicted attrition probability
+        
+    Returns:
+        Dictionary with personalized recommendation info
     """
+    # Clean up dialogues - convert any NaN, None or non-string values to empty strings
+    clean_dialogues = {}
+    if dialogues:
+        for key, value in dialogues.items():
+            if isinstance(value, str) and value.lower() != 'nan':
+                clean_dialogues[key] = value
+            elif isinstance(value, (list, tuple)) and value:
+                # Join lists or tuples into a single string
+                clean_dialogues[key] = " ".join([str(item) for item in value if str(item).lower() != 'nan'])
+    
     recommender = ContextualRetentionRecommender()
     return recommender.generate_personalized_recommendation(
-        dialogues, feature_importance, attrition_prob
+        clean_dialogues, feature_importance, attrition_prob
     )
 
 # Example usage
