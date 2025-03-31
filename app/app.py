@@ -853,7 +853,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                             title="Attrition Rate by Business Unit",
                             labels=dict(x="Business Unit", y="", color="Attrition Rate"),
                             aspect="auto",
-                            color_continuous_scale=['#ef4444', '#fbbf24', '#059669']  # Vibrant red to yellow to green
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red                        )
                         )
                         
                         # Update layout
@@ -894,7 +894,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                             y='Attrition Rate',
                             title="Attrition Rate by Business Unit",
                             color='Attrition Rate',
-                            color_continuous_scale=['#ef4444', '#fbbf24', '#059669']  # Vibrant red to yellow to green
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
                         )
                         
                         # Update layout
@@ -1030,7 +1030,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                             title="Attrition Rate by Region",
                             labels=dict(x="Region", y="", color="Attrition Rate"),
                             aspect="auto",
-                            color_continuous_scale=['#ef4444', '#fbbf24', '#059669']  # Vibrant red to yellow to green
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
                         )
                         
                         # Update layout
@@ -1071,7 +1071,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                             y='Attrition Rate',
                             title="Attrition Rate by Region",
                             color='Attrition Rate',
-                            color_continuous_scale=['#ef4444', '#fbbf24', '#059669']  # Vibrant red to yellow to green
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red                        )
                         )
                         
                         # Update layout
@@ -1190,7 +1190,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
         title=f"Risk Scores vs {selected_factor.replace('_', ' ').title()}",
         labels={'Factor': selected_factor.replace('_', ' ').title(), 'Risk Score': 'Attrition Risk (%)'},
         color='Risk Score',
-        color_continuous_scale=['#ef4444', '#fbbf24', '#059669']  # Vibrant red to yellow to green
+        color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red    )
     )
     
     # Update layout with dark mode friendly styling
@@ -1614,7 +1614,9 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 try:
                     dialogues = df.loc[employee_id, ['ManagerDialogue', 'EmployeeResponse']].to_dict()
                 except Exception as e:
-                    st.debug(f"Error retrieving dialogues: {str(e)}")
+                    # Replace st.debug() with st.write() in an expander
+                    with st.expander("Debug Information", expanded=False):
+                        st.write(f"Error retrieving dialogues: {str(e)}")
                     dialogues = {}
             
             # Generate enhanced recommendations
@@ -1623,17 +1625,16 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 recommendations = get_employee_retention_recommendation(dialogues, feature_importance, attrition_prob)
                 st.session_state[recs_cache_key] = recommendations
             except Exception as e:
-                st.debug(f"Error generating recommendations: {str(e)}")
-                # Log more details about the error for debugging
-                import traceback
-                error_details = traceback.format_exc()
-                st.session_state['last_recommendation_error'] = {
-                    'error': str(e),
-                    'traceback': error_details,
-                    'employee_id': employee_id,
-                    'risk_score': risk_score,
-                    'feature_importance': feature_importance[:3] if feature_importance else []
-                }
+                # Replace st.debug() with st.write() in an expander
+                with st.expander("Debug Information", expanded=False):
+                    st.write(f"Error generating recommendations: {str(e)}")
+                    # Log more details about the error for debugging
+                    import traceback
+                    error_details = traceback.format_exc()
+                    st.write("Error details:", error_details)
+                    st.write("Employee ID:", employee_id)
+                    st.write("Risk score:", risk_score)
+                    st.write("Feature importance (top 3):", feature_importance[:3] if feature_importance else [])
                 
                 # Create a default recommendation
                 recommendations = {
