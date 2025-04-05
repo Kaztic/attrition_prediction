@@ -31,7 +31,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.model import AttritionPredictionModel
 from src.model import AttritionPredictionModel
-from src.recommendation_engine import generate_recommendations, identify_risk_clusters
+from src.enhanced_recommendation_engine import get_employee_retention_recommendation
+from src.feature_mapping_recommendations import feature_keyword_mapping, retention_strategies
 
 # Dark mode colors - permanent dark mode
 bg_color = "#0f172a"  # Dark blue background
@@ -151,6 +152,24 @@ st.markdown(f"""
     .stTabs [data-baseweb="tab-list"] {{
         gap: 1rem;
         background-color: transparent;
+    }}
+    
+    /* Filtered Employees Section - target for scrolling */
+    #filtered-employees {{
+        scroll-margin-top: 80px;
+        padding-top: 10px;
+        border-top: 2px solid {highlight_color};
+        position: relative;
+    }}
+    
+    /* Filtered Employees animation */
+    @keyframes highlight-section {{
+        0% {{ background-color: rgba(59, 130, 246, 0.2); }}
+        100% {{ background-color: transparent; }}
+    }}
+    
+    .section-highlight {{
+        animation: highlight-section 1.5s ease-out;
     }}
     
     .stTabs [data-baseweb="tab"] {{
@@ -323,8 +342,65 @@ def load_data():
 def load_prediction_resources():
     """Load and cache the model and explainer"""
     try:
-        model = AttritionPredictionModel.load_model()
-        explainer = shap.TreeExplainer(model)
+        # Create a new instance of the AttritionPredictionModel
+        model = AttritionPredictionModel(model_type='random_forest')
+        
+        # Define the exact feature names expected by the model (23 features)
+        expected_features = [
+            'tenure', 'performance_score', 'last_promotion', 'training_hours', 'role_changes',
+            'survey_satisfaction', 'peer_attrition_last60d', 'leave_days_taken', 'skill_relevance',
+            'team_attrition_rate', 'dept_attrition_rate', 'manager_avg_performance', 'manager_team_size',
+            'promotion_delay', 'never_promoted', 'engagement_score', 'stagnation_risk',
+            'performance_above_dept_avg', 'leave_utilization', 'high_performer_no_promo',
+            'Business_Unit_BU1', 'Business_Unit_BU2', 'Business_Unit_BU3'
+        ]
+        
+        # Load and prepare data for the model
+        try:
+            # Try to load preprocessed employee data for training
+            df = pd.read_csv('data/preprocessed_employee_data.csv')
+            
+            # Check if necessary columns exist
+            if 'AttritionLabel' in df.columns:
+                # Transform data to match the expected features
+                transformed_df = transform_data(df.set_index('EmployeeID'))
+                
+                # Create training dataset with only the expected features
+                X = transformed_df[expected_features]
+                y = df['AttritionLabel']
+                
+                # Train the model with only the features we'll use for prediction
+                model.train(X, y, feature_names=expected_features)
+            else:
+                st.warning("Required 'AttritionLabel' column not found in the data. Using default model configuration.")
+                # Initialize a default model for prediction
+                from sklearn.ensemble import RandomForestClassifier
+                model.model = RandomForestClassifier(
+                    n_estimators=20,
+                    max_depth=10,
+                    min_samples_split=5,
+                    min_samples_leaf=2,
+                    random_state=42,
+                    class_weight='balanced'
+                )
+                model.feature_names = expected_features
+        except Exception as train_error:
+            st.warning(f"Could not train the model: {str(train_error)}. Using default model configuration.")
+            # Initialize a default model for prediction
+            from sklearn.ensemble import RandomForestClassifier
+            model.model = RandomForestClassifier(
+                n_estimators=20,
+                max_depth=10,
+                min_samples_split=5,
+                min_samples_leaf=2,
+                random_state=42,
+                class_weight='balanced'
+            )
+            model.feature_names = expected_features
+        
+        # Create the explainer
+        explainer = shap.TreeExplainer(model.model)
+        
         return model, explainer
     except Exception as e:
         st.error(f"Error loading prediction resources: {str(e)}")
@@ -472,11 +548,11 @@ def predict_all_employees(df, _model, _explainer, features):
         # Use only the required features for prediction
         X = df[required_features]
         
-        # Generate predictions
-        probabilities = _model.predict_proba(X)[:, 1]
+        # Generate predictions using the predict method from AttritionPredictionModel
+        probabilities = _model.predict(X)
         
-        # Apply consistent risk score adjustment (multiply by 1.5, cap at 1.0)
-        adjusted_probabilities = np.minimum(probabilities * 1.5, np.ones_like(probabilities))
+        # Use original probabilities without scaling
+        adjusted_probabilities = probabilities
         
         # Generate SHAP explanations
         explanations = _explainer.shap_values(X)
@@ -493,6 +569,8 @@ def predict_all_employees(df, _model, _explainer, features):
         return probabilities, adjusted_probabilities, full_explanations
     except Exception as e:
         st.error(f"Error generating predictions: {str(e)}")
+        import traceback
+        st.error(f"Error details: {traceback.format_exc()}")
         return None, None, None
 
 def validate_data(df, features):
@@ -543,9 +621,8 @@ def validate_data(df, features):
 
 def format_risk_score(score):
     """Format the risk score with appropriate styling"""
-    # Convert to percentage (0-100) and apply consistent adjustment
-    adjusted_score = min(score * 1.5, 1.0)  # Apply the same adjustment factor
-    percentage = adjusted_score * 100
+    # Convert to percentage (0-100) without any adjustment
+    percentage = score * 100
     
     if percentage >= 70:  # High risk threshold
         return f'<span class="risk-high">High Risk ({percentage:.0f}%)</span>'
@@ -596,6 +673,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                 for key in list(st.session_state.keys()):
                     if key.startswith('bu_heatmap_') or key.startswith('region_heatmap_'):
                         del st.session_state[key]
+                st.session_state.scroll_to_filtered = True
                 st.experimental_rerun()
             st.markdown(f"""
                 <div class="metric-card" style="cursor: pointer;">
@@ -611,6 +689,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                 for key in list(st.session_state.keys()):
                     if key.startswith('bu_heatmap_') or key.startswith('region_heatmap_'):
                         del st.session_state[key]
+                st.session_state.scroll_to_filtered = True
                 st.experimental_rerun()
             st.markdown(f"""
                 <div class="metric-card" style="cursor: pointer;">
@@ -626,6 +705,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                 for key in list(st.session_state.keys()):
                     if key.startswith('bu_heatmap_') or key.startswith('region_heatmap_'):
                         del st.session_state[key]
+                st.session_state.scroll_to_filtered = True
                 st.experimental_rerun()
             st.markdown(f"""
                 <div class="metric-card" style="cursor: pointer;">
@@ -641,6 +721,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                 for key in list(st.session_state.keys()):
                     if key.startswith('bu_heatmap_') or key.startswith('region_heatmap_'):
                         del st.session_state[key]
+                st.session_state.scroll_to_filtered = True
                 st.experimental_rerun()
             st.markdown(f"""
                 <div class="metric-card" style="cursor: pointer;">
@@ -772,7 +853,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                             title="Attrition Rate by Business Unit",
                             labels=dict(x="Business Unit", y="", color="Attrition Rate"),
                             aspect="auto",
-                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red                        )
                         )
                         
                         # Update layout
@@ -990,7 +1071,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                             y='Attrition Rate',
                             title="Attrition Rate by Region",
                             color='Attrition Rate',
-                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
+                            color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red                        )
                         )
                         
                         # Update layout
@@ -1109,7 +1190,7 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
         title=f"Risk Scores vs {selected_factor.replace('_', ' ').title()}",
         labels={'Factor': selected_factor.replace('_', ' ').title(), 'Risk Score': 'Attrition Risk (%)'},
         color='Risk Score',
-        color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red
+        color_continuous_scale=['#059669', '#fbbf24', '#ef4444']  # Vibrant green to yellow to red    )
     )
     
     # Update layout with dark mode friendly styling
@@ -1151,7 +1232,8 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
 
     # Display filtered employees at risk - only show top ones for performance
     with st.container():
-        st.markdown('<h2 class="sub-header">Filtered Employees at Risk</h2>', unsafe_allow_html=True)
+        st.markdown('<div class="section-highlight"></div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="sub-header" id="filtered-employees">📋 Filtered Employees at Risk</h2>', unsafe_allow_html=True)
         
         # Create a DataFrame with employee details - use the adjusted probabilities
         risk_df = pd.DataFrame({
@@ -1176,6 +1258,77 @@ def display_overview_tab(df, transformed_df, probabilities, adjusted_probabiliti
                     st.session_state.selected_employee = row['Employee ID']
                     st.session_state.switch_to_employee_tab = True
                     st.experimental_rerun()
+    
+    # Add JavaScript to scroll to filtered employees section if requested
+    if 'scroll_to_filtered' in st.session_state and st.session_state.scroll_to_filtered:
+        st.markdown("""
+            <script>
+                // Use a more reliable approach with retry logic
+                function scrollToFiltered() {
+                    const filteredSection = document.getElementById('filtered-employees');
+                    if (filteredSection) {
+                        // Use scrollIntoView with smooth behavior
+                        filteredSection.scrollIntoView({ 
+                            behavior: 'smooth',
+                            block: 'start' 
+                        });
+                        
+                        // Add a temporary highlight effect
+                        const highlightEl = document.createElement('div');
+                        highlightEl.style.position = 'absolute';
+                        highlightEl.style.top = '0';
+                        highlightEl.style.left = '0';
+                        highlightEl.style.right = '0';
+                        highlightEl.style.bottom = '0';
+                        highlightEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                        highlightEl.style.borderRadius = '8px';
+                        highlightEl.style.pointerEvents = 'none';
+                        highlightEl.style.zIndex = '1';
+                        
+                        filteredSection.style.position = 'relative';
+                        filteredSection.appendChild(highlightEl);
+                        
+                        // Fade out effect
+                        setTimeout(() => {
+                            let opacity = 0.2;
+                            const fadeInterval = setInterval(() => {
+                                opacity -= 0.02;
+                                highlightEl.style.backgroundColor = `rgba(59, 130, 246, ${opacity})`;
+                                if (opacity <= 0) {
+                                    clearInterval(fadeInterval);
+                                    filteredSection.removeChild(highlightEl);
+                                }
+                            }, 30);
+                        }, 500);
+                        
+                        console.log('Scrolled to filtered employees section');
+                        return true;
+                    }
+                    return false;
+                }
+                
+                // Try scrolling immediately
+                if (!scrollToFiltered()) {
+                    // If failed, retry after DOM is fully loaded
+                    window.addEventListener('load', function() {
+                        // Try again after load
+                        if (!scrollToFiltered()) {
+                            // If still not found, use a delayed approach
+                            setTimeout(function() {
+                                scrollToFiltered();
+                            }, 500); // 500ms delay
+                        }
+                    });
+                    
+                    // Also try with a short delay in case 'load' already happened
+                    setTimeout(function() {
+                        scrollToFiltered();
+                    }, 100);
+                }
+            </script>
+        """, unsafe_allow_html=True)
+        # Reset the flag after use
+        st.session_state.scroll_to_filtered = False
 
 def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_probabilities, explanations, features, model):
     """Display the employee analysis tab with detailed insights"""
@@ -1360,8 +1513,21 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
                 'Absolute Impact': np.abs(employee_explanation)
             }).sort_values('Absolute Impact', ascending=False)
             
-            # Calculate confidence level based on feature importance distribution
-            confidence_score = min(1.0, max(0.0, 1 - (impact_df['Absolute Impact'].std() / (impact_df['Absolute Impact'].mean() + 1e-10))))
+            # Calculate confidence level using a more robust formula
+            # Get the top 5 feature impacts and their relative contribution
+            top_features = impact_df.head(5)
+            total_impact = impact_df['Absolute Impact'].sum()
+            
+            # If top 5 features account for most of the impact, confidence is higher
+            top5_contribution = top_features['Absolute Impact'].sum() / (total_impact + 1e-10)
+            
+            # Also factor in the ratio between the top feature and others
+            concentration = top_features.iloc[0]['Absolute Impact'] / (top_features['Absolute Impact'].sum() + 1e-10)
+            
+            # Combine these metrics into a confidence score between 0 and 1
+            confidence_score = 0.5 * top5_contribution + 0.5 * concentration
+            confidence_score = min(1.0, max(0.3, confidence_score))  # Ensure score is at least 0.3
+            
             confidence_level = "High" if confidence_score > 0.7 else "Medium" if confidence_score > 0.4 else "Low"
             
             st.markdown(f"""
@@ -1374,102 +1540,47 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
             
             # Display key drivers - limit to top 5 for performance
             st.markdown('<h4 style="color: #f1f5f9; font-family: \'Poppins\', sans-serif; font-weight: 600; margin: 1.5rem 0 1rem 0; font-size: 1.1rem;">Key Risk Drivers</h4>', unsafe_allow_html=True)
-            for _, row in impact_df.head(5).iterrows():
-                feature = row['Feature']
-                impact = row['Impact']
-                value = employee_data[feature]
-                
-                # Format value based on feature type
-                if 'score' in feature and 'performance' in feature:
-                    formatted_value = f"{value:.1f}/5.0"
-                elif 'rate' in feature or 'score' in feature:
-                    formatted_value = f"{value:.1%}"
-                elif 'hours' in feature or 'years' in feature:
-                    formatted_value = f"{value:.1f}"
-                else:
-                    formatted_value = f"{value:.2f}"
-                
-                # Set color based on impact - dark mode version
-                if impact > 0:
-                    color = '#ef4444'  # Red for increasing risk
+            
+            # Filter to only negative impact (risk increasing) factors
+            negative_impact_df = impact_df[impact_df['Impact'] <= 0].sort_values('Absolute Impact', ascending=False)
+            
+            if len(negative_impact_df) > 0:
+                for _, row in negative_impact_df.head(5).iterrows():
+                    feature = row['Feature']
+                    impact = row['Impact']
+                    value = employee_data[feature]
+                    
+                    # Format value based on feature type
+                    if 'score' in feature and 'performance' in feature:
+                        formatted_value = f"{value:.1f}/5.0"
+                    elif 'rate' in feature or 'score' in feature:
+                        formatted_value = f"{value:.1%}"
+                    elif 'hours' in feature or 'years' in feature:
+                        formatted_value = f"{value:.1f}"
+                    else:
+                        formatted_value = f"{value:.2f}"
+                    
+                    # Set color - only showing risk-increasing factors (negative impact)
+                    color = '#ef4444'  # Red for increasing risk (negative impact means higher attrition risk)
                     bg_color = '#7f1d1d'  # Dark red background
                     icon = '↑'  # Up arrow
                     impact_text = "increases"
-                else:
-                    color = '#10b981'  # Green for decreasing risk
-                    bg_color = '#064e3b'  # Dark green background
-                    icon = '↓'  # Down arrow
-                    impact_text = "decreases"
-                
-                st.markdown(f"""
-                    <div style='background-color: {bg_color}; color: {text_color}; padding: 12px; margin: 8px 0; 
-                         border-radius: 8px; font-family: "Poppins", sans-serif; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);'>
-                        <div style='display: flex; justify-content: space-between;'>
-                            <span style='font-weight: 600; font-size: 1rem;'>{feature.replace('_', ' ').title()}</span>
-                            <span style='font-weight: 600; color: {color};'>{formatted_value}</span>
+                    
+                    st.markdown(f"""
+                        <div style='background-color: {bg_color}; color: {text_color}; padding: 12px; margin: 8px 0; 
+                             border-radius: 8px; font-family: "Poppins", sans-serif; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);'>
+                            <div style='display: flex; justify-content: space-between;'>
+                                <span style='font-weight: 600; font-size: 1rem;'>{feature.replace('_', ' ').title()}</span>
+                                <span style='font-weight: 600; color: {color};'>{formatted_value}</span>
+                            </div>
+                            <div style='font-size: 0.9rem; margin-top: 5px; display: flex; align-items: center;'>
+                                <span style='color: {color}; font-weight: 600; font-size: 1.1rem; margin-right: 5px;'>{icon}</span>
+                                <span>{impact_text} attrition risk by <span style='font-weight: 600; color: {color};'>{abs(impact)*100:.1f}%</span></span>
+                            </div>
                         </div>
-                        <div style='font-size: 0.9rem; margin-top: 5px; display: flex; align-items: center;'>
-                            <span style='color: {color}; font-weight: 600; font-size: 1.1rem; margin-right: 5px;'>{icon}</span>
-                            <span>{impact_text} attrition risk by <span style='font-weight: 600; color: {color};'>{abs(impact):.3f}</span></span>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-    
-    # Risk Alerts - wrap in container for performance
-    with st.container():
-        st.markdown('<h2 class="sub-header">Risk Alerts</h2>', unsafe_allow_html=True)
-        
-        # Individual alerts based on specific risk factors
-        if risk_score >= 0.70:  # High risk threshold
-            if employee_data['tenure'] < 1.0:
-                st.markdown(f"""
-                    <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ New Hire Flight Risk</h5>
-                        <p><strong>Alert Level:</strong> Critical</p>
-                        <p><strong>Details:</strong> Employee is a high flight risk with less than 1 year tenure.</p>
-                        <p><strong>Recommended Action:</strong> Immediate engagement plan and retention interview.</p>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            if employee_data['performance_score'] > 4.0:
-                st.markdown(f"""
-                    <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ High Performer Risk</h5>
-                        <p><strong>Alert Level:</strong> Critical</p>
-                        <p><strong>Details:</strong> High-performing employee at risk of leaving.</p>
-                        <p><strong>Recommended Action:</strong> Review compensation, advancement opportunities, and recognition.</p>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            if employee_data['engagement_score'] < 0.5:
-                st.markdown(f"""
-                    <div style='background-color: #dc2626; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ Low Engagement Alert</h5>
-                        <p><strong>Alert Level:</strong> Critical</p>
-                        <p><strong>Details:</strong> Employee has very low engagement score ({employee_data['engagement_score']:.2f}).</p>
-                        <p><strong>Recommended Action:</strong> Deep dive on engagement factors and workplace satisfaction.</p>
-                    </div>
-                """, unsafe_allow_html=True)
-        elif risk_score >= 0.50:  # Medium risk threshold
-            if employee_data['tenure'] > 5.0 and employee_data['performance_score'] > 3.5:
-                st.markdown(f"""
-                    <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ Career Plateau Risk</h5>
-                        <p><strong>Alert Level:</strong> High</p>
-                        <p><strong>Details:</strong> Long-tenured good performer at risk of stagnation.</p>
-                        <p><strong>Recommended Action:</strong> Review career trajectory and development opportunities.</p>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            if employee_data['engagement_score'] < 0.6:
-                st.markdown(f"""
-                    <div style='background-color: #f59e0b; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">⚠️ Declining Engagement Alert</h5>
-                        <p><strong>Alert Level:</strong> High</p>
-                        <p><strong>Details:</strong> Employee shows below-average engagement levels.</p>
-                        <p><strong>Recommended Action:</strong> Regular check-ins and engagement improvement plan.</p>
-                    </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No significant negative risk drivers found for this employee.")
     
     # Manager's Action Items - wrap in container for performance
     with st.container():
@@ -1483,41 +1594,97 @@ def display_employee_analysis_tab(df, transformed_df, probabilities, adjusted_pr
         if recs_cache_key not in st.session_state:
             # Create a DataFrame with just this employee's data
             employee_df = transformed_df.loc[[employee_id]]
-            employee_explanations = explanations[transformed_df.index == employee_id]
+            employee_explanation = explanations[transformed_df.index == employee_id][0]
             
-            # Generate recommendations
-            recommendations = generate_recommendations(
-                employee_df,
-                employee_explanations,
-                features,
-                risk_level
-            )
+            # Convert SHAP values to feature importance format
+            feature_importance = []
+            for i, feature in enumerate(features):
+                importance = np.abs(employee_explanation[i])
+                feature_importance.append({
+                    'feature': feature,
+                    'importance': float(importance)
+                })
             
-            st.session_state[recs_cache_key] = recommendations
+            # Sort by importance
+            feature_importance = sorted(feature_importance, key=lambda x: x['importance'], reverse=True)
+            
+            # Get employee dialogues if available
+            dialogues = {}
+            if 'ManagerDialogue' in df.columns and 'EmployeeResponse' in df.columns:
+                try:
+                    dialogues = df.loc[employee_id, ['ManagerDialogue', 'EmployeeResponse']].to_dict()
+                except Exception as e:
+                    # Replace st.debug() with st.write() in an expander
+                    with st.expander("Debug Information", expanded=False):
+                        st.write(f"Error retrieving dialogues: {str(e)}")
+                    dialogues = {}
+            
+            # Generate enhanced recommendations
+            try:
+                attrition_prob = adjusted_probabilities[transformed_df.index.get_loc(employee_id)]
+                recommendations = get_employee_retention_recommendation(dialogues, feature_importance, attrition_prob)
+                st.session_state[recs_cache_key] = recommendations
+            except Exception as e:
+                # Replace st.debug() with st.write() in an expander
+                with st.expander("Debug Information", expanded=False):
+                    st.write(f"Error generating recommendations: {str(e)}")
+                    # Log more details about the error for debugging
+                    import traceback
+                    error_details = traceback.format_exc()
+                    st.write("Error details:", error_details)
+                    st.write("Employee ID:", employee_id)
+                    st.write("Risk score:", risk_score)
+                    st.write("Feature importance (top 3):", feature_importance[:3] if feature_importance else [])
+                
+                # Create a default recommendation
+                recommendations = {
+                    'selected_feature': 'employee_engagement',
+                    'keywords': [],
+                    'relevant_features': ['employee_engagement'],
+                    'personalized_recommendation': "Implement regular check-ins and focus on career development opportunities.",
+                    'priority': 'High' if risk_score >= 0.70 else 'Medium'
+                }
+                st.session_state[recs_cache_key] = recommendations
         else:
             recommendations = st.session_state[recs_cache_key]
         
-        if recommendations:
-            for rec in recommendations:
-                # Set color based on priority
-                if rec['priority'] == 'Critical':
-                    bg_color = '#dc2626'  # Red background
-                    text_color = 'white'  # White text
-                elif rec['priority'] == 'High':
-                    bg_color = '#f59e0b'  # Orange background
-                    text_color = 'white'  # White text
+        # Display the recommendation
+        if recommendations and isinstance(recommendations, dict) and 'personalized_recommendation' in recommendations:
+            # Set color based on priority
+            priority = recommendations['priority']
+            if priority == 'High':
+                bg_color = '#f59e0b'  # Orange background
+                text_color = 'white'  # White text
+            else:
+                bg_color = '#059669'  # Green background
+                text_color = 'white'  # White text
+            
+            st.markdown(f"""
+                <div style='background-color: {bg_color}; color: {text_color}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
+                    <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">Personalized Recommendation</h5>
+                    <p><strong>Priority:</strong> {priority}</p>
+                    <p>{recommendations['personalized_recommendation']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Show additional context
+            with st.expander("Recommendation Context"):
+                st.write("Selected Feature:", recommendations["selected_feature"])
+                if "mapped_feature" in recommendations and recommendations["selected_feature"] != recommendations["mapped_feature"]:
+                    st.write("Mapped to:", recommendations["mapped_feature"])
+                st.write("Relevant Features:", ", ".join(recommendations["relevant_features"]))
+                st.write("Keywords Identified:", ", ".join(recommendations["keywords"]))
+                if "attrition_probability" in recommendations:
+                    st.write("Attrition Probability:", f"{recommendations['attrition_probability']*100:.1f}%")
+            
+            # Show all associated retention strategies for the selected feature
+            with st.expander("Additional Strategies"):
+                feature = recommendations.get("mapped_feature", recommendations["selected_feature"])
+                if feature in retention_strategies:
+                    for strategy in retention_strategies[feature]:
+                        st.write(f"• {strategy}")
                 else:
-                    bg_color = '#059669'  # Green background
-                    text_color = 'white'  # White text
-                
-                st.markdown(f"""
-                    <div style='background-color: {bg_color}; color: {text_color}; padding: 15px; margin: 10px 0; border-radius: 5px;'>
-                        <h5 style="font-family: 'Poppins', sans-serif; font-weight: 600; margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem;">{rec['action']}</h5>
-                        <p><strong>Priority:</strong> {rec['priority']}</p>
-                        <p><strong>Timeline:</strong> {rec['timeline']}</p>
-                        <p>{rec['details']}</p>
-                    </div>
-                """, unsafe_allow_html=True)
+                    st.write("No additional strategies available for feature:", feature)
         else:
             # Add default recommendations based on risk level
             if risk_level == "High Risk":
@@ -1560,6 +1727,8 @@ def main():
         st.session_state.selected_employee = None
     if 'switch_to_employee_tab' not in st.session_state:
         st.session_state.switch_to_employee_tab = False
+    if 'scroll_to_filtered' not in st.session_state:
+        st.session_state.scroll_to_filtered = False
     
     # Use st.spinner to show loading state during heavy operations
     with st.spinner("Loading data and model..."):
